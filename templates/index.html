@@ -182,6 +182,7 @@
 
   <div class="mcard">
     <h3>People</h3>
+    <div class="people-groups">
     {% for team in model.teams %}
       {% set team_members = model.members | selectattr('team_id', 'equalto', team.id) | list %}
       {% if team_members %}
@@ -238,6 +239,7 @@
         </div>
       </div>
     {% endif %}
+    </div>
     {% if not model.members %}
       <p class="empty-hint">No people yet — add one below.</p>
     {% endif %}
