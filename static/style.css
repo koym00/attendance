@@ -52,12 +52,12 @@ select,input{font-family:inherit;}
 .scroll{overflow-x:auto;}
 .scroll::-webkit-scrollbar{height:10px;}
 .scroll::-webkit-scrollbar-thumb{background:#cbd2da; border-radius:8px;}
-.grid{min-width:calc(var(--name-w) + var(--cols)*var(--day-w) + 4px);}
+.grid{width:100%; min-width:calc(var(--name-w) + var(--cols)*var(--day-w) + 4px);}
 .row{display:flex; align-items:stretch;}
 
 .namecol{width:var(--name-w); flex:0 0 var(--name-w); position:sticky; left:0; z-index:2;
   background:#fff; border-right:1px solid var(--line); padding:0 16px; display:flex; align-items:center;}
-.daycol{width:var(--day-w); flex:0 0 var(--day-w);}
+.daycol{flex:1 1 var(--day-w); min-width:var(--day-w); max-width:90px;}
 
 .head{position:sticky; top:0; z-index:3; background:#fff;}
 .corner{z-index:4; align-items:flex-end; padding-bottom:8px; font-size:11px; font-weight:700;
