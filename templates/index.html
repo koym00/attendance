@@ -192,20 +192,22 @@
             {% for m in team_members %}
               <div class="mrow">
                 <span>{{ m.name }}</span>
-                <form method="post" action="/member/team" class="inlineform">
-                  <input type="hidden" name="member_id" value="{{ m.id }}">
-                  <select name="team_id" onchange="this.form.requestSubmit()">
-                    <option value="" {{ 'selected' if m.team_id is none }}>— Unassigned —</option>
-                    {% for t in model.teams %}
-                      <option value="{{ t.id }}" {{ 'selected' if t.id == m.team_id }}>{{ t.name }}</option>
-                    {% endfor %}
-                  </select>
-                </form>
-                <form method="post" action="/member/delete" class="inlineform"
-                      data-confirm="Remove {{ m.name }}?">
-                  <input type="hidden" name="member_id" value="{{ m.id }}">
-                  <button type="submit" class="danger small" title="Remove person">✕</button>
-                </form>
+                <div class="mrow-actions">
+                  <form method="post" action="/member/team" class="inlineform">
+                    <input type="hidden" name="member_id" value="{{ m.id }}">
+                    <select name="team_id" onchange="this.form.requestSubmit()">
+                      <option value="" {{ 'selected' if m.team_id is none }}>— Unassigned —</option>
+                      {% for t in model.teams %}
+                        <option value="{{ t.id }}" {{ 'selected' if t.id == m.team_id }}>{{ t.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </form>
+                  <form method="post" action="/member/delete" class="inlineform"
+                        data-confirm="Remove {{ m.name }}?">
+                    <input type="hidden" name="member_id" value="{{ m.id }}">
+                    <button type="submit" class="danger small" title="Remove person">✕</button>
+                  </form>
+                </div>
               </div>
             {% endfor %}
           </div>
@@ -220,20 +222,22 @@
           {% for m in unassigned_people %}
             <div class="mrow">
               <span>{{ m.name }}</span>
-              <form method="post" action="/member/team" class="inlineform">
-                <input type="hidden" name="member_id" value="{{ m.id }}">
-                <select name="team_id" onchange="this.form.requestSubmit()">
-                  <option value="" selected>— Unassigned —</option>
-                  {% for t in model.teams %}
-                    <option value="{{ t.id }}">{{ t.name }}</option>
-                  {% endfor %}
-                </select>
-              </form>
-              <form method="post" action="/member/delete" class="inlineform"
-                    data-confirm="Remove {{ m.name }}?">
-                <input type="hidden" name="member_id" value="{{ m.id }}">
-                <button type="submit" class="danger small" title="Remove person">✕</button>
-              </form>
+              <div class="mrow-actions">
+                <form method="post" action="/member/team" class="inlineform">
+                  <input type="hidden" name="member_id" value="{{ m.id }}">
+                  <select name="team_id" onchange="this.form.requestSubmit()">
+                    <option value="" selected>— Unassigned —</option>
+                    {% for t in model.teams %}
+                      <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                <form method="post" action="/member/delete" class="inlineform"
+                      data-confirm="Remove {{ m.name }}?">
+                  <input type="hidden" name="member_id" value="{{ m.id }}">
+                  <button type="submit" class="danger small" title="Remove person">✕</button>
+                </form>
+              </div>
             </div>
           {% endfor %}
         </div>

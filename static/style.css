@@ -145,7 +145,10 @@ body.manage-mode .manage{display:grid;}
 .people-group{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;}
 .people-group-head{font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase;
   letter-spacing:.6px; margin:0 0 8px;}
-.people-group .mrow{background:#fff;}
+.people-group .mrow{background:#fff; flex-direction:column; align-items:stretch; gap:7px;}
+.people-group .mrow>span:first-child{flex:none;}
+.mrow-actions{display:flex; align-items:center; gap:8px;}
+.mrow-actions .inlineform select{flex:1 1 auto;}
 .msection{margin-top:18px; padding-top:16px; border-top:1px dashed var(--line);}
 .msection h4{font-size:10.5px; font-weight:700; color:var(--sub); text-transform:uppercase;
   letter-spacing:.6px; margin:0 0 4px;}
