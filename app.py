@@ -43,16 +43,20 @@ def admin_required(view):
 #  Status configuration (shared with the front-end via the template)  #
 # ------------------------------------------------------------------ #
 STATUS = {
-    "ofc": {"label": "In office",     "color": "#16A34A", "working": True},
-    "wfh": {"label": "Home office",   "color": "#2563EB", "working": True},
-    "trp": {"label": "Business trip", "color": "#7C3AED", "working": True},
-    "vac": {"label": "Vacation",      "color": "#E08600", "working": False},
-    "sck": {"label": "Sick",          "color": "#DC2626", "working": False},
-    "flx": {"label": "Flexi day",     "color": "#0D9488", "working": False},
-    "fre": {"label": "Free",          "color": "#64748B", "working": False},
+    "ofc": {"label": "In office",         "color": "#16A34A", "working": True},
+    "wfh": {"label": "Home office",       "color": "#2563EB", "working": True},
+    "trp": {"label": "Business trip",     "color": "#7C3AED", "working": True},
+    "vac": {"label": "Vacation",          "color": "#E08600", "working": False},
+    "hva": {"label": "Half-day vacation", "color": "#E08600", "working": False},
+    "sck": {"label": "Sick",              "color": "#DC2626", "working": False},
+    "flx": {"label": "Flexi day",         "color": "#0D9488", "working": False},
+    "fre": {"label": "Free",              "color": "#64748B", "working": False},
 }
-ORDER = ["ofc", "wfh", "trp", "vac", "sck", "flx", "fre"]
+ORDER = ["ofc", "wfh", "trp", "vac", "hva", "sck", "flx", "fre"]
 WORKING = {k for k, v in STATUS.items() if v["working"]}
+
+# Vacation days consumed per status (full vacation = 1 day, half-day = 0.5).
+VAC_WEIGHT = {"vac": 1.0, "hva": 0.5}
 
 MONTHS = ["", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
@@ -220,6 +224,18 @@ def effective_status(stored, weekend, holiday):
     return "ofc"
 
 
+def vacation_days_used(conn, member_id, year, exclude_dates=None):
+    """Total vacation-equivalent days (full=1, half-day=0.5) used by member_id
+    in the given calendar year, optionally excluding specific dates (e.g. ones
+    about to be overwritten by the current request)."""
+    exclude_dates = exclude_dates or set()
+    rows = conn.execute(
+        "SELECT day, status FROM attendance WHERE member_id=? AND status IN ('vac','hva') AND day LIKE ?",
+        (member_id, f"{year}-%"),
+    ).fetchall()
+    return sum(VAC_WEIGHT[r["status"]] for r in rows if r["day"] not in exclude_dates)
+
+
 def month_days(year, month):
     holidays = cz_holidays(year)
     today = date.today()
@@ -325,10 +341,7 @@ def build_model(year, month, me_id):
     used_days = 0
     if me:
         conn = db()
-        used_days = conn.execute(
-            "SELECT COUNT(*) FROM attendance WHERE member_id=? AND status='vac' AND day LIKE ?",
-            (me_id, f"{year:04d}-%"),
-        ).fetchone()[0]
+        used_days = round(vacation_days_used(conn, me_id, year), 1)
         conn.close()
     my_stats = None
     if me:
@@ -393,11 +406,11 @@ def admin_logout():
 
 
 def vacation_allowance_block(conn, member_id, dates, new_status):
-    """Check whether setting new_status='vac' for member_id would use more
-    vacation days than their yearly allowance. Returns {"year", "name",
+    """Check whether setting new_status (vac or hva) for member_id would use
+    more vacation days than their yearly allowance. Returns {"year", "name",
     "allowed_days", "used_before", "used_after"} describing the conflict, or
     None if OK. Allowance resets every calendar year."""
-    if new_status != "vac":
+    if new_status not in VAC_WEIGHT:
         return None
     member = conn.execute("SELECT name, allowance FROM members WHERE id=?", (member_id,)).fetchone()
     if not member:
@@ -409,74 +422,17 @@ def vacation_allowance_block(conn, member_id, dates, new_status):
         by_year.setdefault(d[:4], []).append(d)
 
     for year, year_dates in by_year.items():
-        existing_days = {
-            r["day"] for r in conn.execute(
-                "SELECT day FROM attendance WHERE member_id=? AND status='vac' AND day LIKE ?",
-                (member_id, f"{year}-%"),
-            ).fetchall()
-        }
-        used_after = len(existing_days | set(year_dates))
+        existing_used = vacation_days_used(conn, member_id, year, exclude_dates=set(year_dates))
+        used_after = round(existing_used + VAC_WEIGHT[new_status] * len(year_dates), 1)
         if used_after > allowed_days:
             return {
                 "year": year,
                 "name": member["name"],
                 "allowed_days": round(allowed_days, 1),
-                "used_before": len(existing_days),
+                "used_before": round(existing_used, 1),
                 "used_after": used_after,
             }
     return None
-
-
-def team_min_blocks(conn, team_id, member_id, dates, new_status):
-    """Check whether setting new_status for member_id on the given dates would
-    drop the team below its minimum working headcount on any weekday/non-holiday
-    date where this member is currently counted as working. Returns
-    {"team", "min", "dates"} describing the conflict, or None if OK."""
-    if not team_id or new_status is None or new_status in WORKING:
-        return None
-    team = conn.execute("SELECT name, min_working FROM teams WHERE id=?", (team_id,)).fetchone()
-    if not team:
-        return None
-    candidate_dates = [
-        d for d in dates
-        if date.fromisoformat(d).weekday() < 5 and d not in cz_holidays(int(d[:4]))
-    ]
-    if not candidate_dates:
-        return None
-
-    day_ph = ",".join("?" * len(candidate_dates))
-    own_rows = conn.execute(
-        f"SELECT day, status FROM attendance WHERE member_id=? AND day IN ({day_ph})",
-        (member_id, *candidate_dates),
-    ).fetchall()
-    own_stored = {r["day"]: r["status"] for r in own_rows}
-    # only dates where this member currently counts as working are actually at risk —
-    # switching between two non-working statuses never reduces coverage.
-    at_risk_dates = [d for d in candidate_dates if effective_status(own_stored.get(d), False, False) in WORKING]
-    if not at_risk_dates:
-        return None
-
-    other_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM members WHERE team_id=? AND id!=?", (team_id, member_id)).fetchall()]
-    stored = {}
-    if other_ids:
-        id_ph = ",".join("?" * len(other_ids))
-        risk_ph = ",".join("?" * len(at_risk_dates))
-        rows = conn.execute(
-            f"SELECT member_id, day, status FROM attendance "
-            f"WHERE member_id IN ({id_ph}) AND day IN ({risk_ph})",
-            (*other_ids, *at_risk_dates),
-        ).fetchall()
-        for r in rows:
-            stored[(r["member_id"], r["day"])] = r["status"]
-    blocked = [
-        d for d in at_risk_dates
-        if sum(1 for mid in other_ids
-               if effective_status(stored.get((mid, d)), False, False) in WORKING) < team["min_working"]
-    ]
-    if not blocked:
-        return None
-    return {"team": team["name"], "min": team["min_working"], "dates": blocked}
 
 
 @app.route("/api/status", methods=["POST"])
@@ -515,16 +471,6 @@ def set_status():
             error=(f"{vac_block['name']} only has {vac_block['allowed_days']} vacation days "
                    f"for {vac_block['year']} ({vac_block['used_before']} already used) — "
                    f"this request would use {vac_block['used_after']}."),
-        ), 409
-
-    block = team_min_blocks(conn, team_id, member_id, dates, status)
-    if block:
-        conn.close()
-        dates_str = ", ".join(block["dates"])
-        return jsonify(
-            ok=False,
-            error=(f"{block['team']} needs at least {block['min']} people working — "
-                   f"this would drop below minimum on {dates_str}."),
         ), 409
 
     try:

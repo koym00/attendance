@@ -22,6 +22,7 @@ function hideToast() {
 
 function chipHtml(status) {
   if (!status) return '<span class="empty">–</span>';
+  if (status === "hva") return '<span class="chip half"><span class="half-text">HVA</span></span>';
   const s = window.STATUS[status];
   return `<span class="chip" style="color:${s.color};background:${s.color}24">${status.toUpperCase()}</span>`;
 }

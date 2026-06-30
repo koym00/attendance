@@ -104,6 +104,13 @@ select,input{font-family:inherit;}
 .cell.locked{cursor:default;}
 .chip{font-size:10px; font-weight:800; letter-spacing:.3px; padding:3px 5px; border-radius:5px;
   min-width:30px; text-align:center;}
+.chip.half{background:linear-gradient(135deg, #16A34A24 50%, #E0860024 50%); color:var(--ink);}
+.chip.half .half-text{
+  background:linear-gradient(135deg, #16A34A 50%, #E08600 50%);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; color:transparent;
+}
+.dot.half{background:linear-gradient(135deg, #16A34A 50%, #E08600 50%);}
 .empty{font-size:11px; color:#D2D8DF;}
 
 /* legend */
@@ -187,7 +194,7 @@ body.manage-mode .manage{display:grid;}
   font-size:11px; color:var(--sub); font-weight:600;}
 .pop .opt{display:flex; align-items:center; gap:9px; padding:8px 12px; cursor:pointer; font-size:13px;}
 .pop .opt:hover{background:var(--panel);}
-.pop .opt .code{width:22px; font-size:9.5px; font-weight:800;}
+.pop .opt .code{width:30px; font-size:9.5px; font-weight:800;}
 .pop .opt.clear{color:var(--sub); border-top:1px solid var(--line);}
 
 /* toast notification */

@@ -66,7 +66,9 @@
     {% for cell in p.cells %}
       <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if p.is_me else 'locked' }}"
            data-member="{{ p.id }}" data-date="{{ cell.iso }}" data-status="{{ cell.status or '' }}">
-        {% if cell.status %}
+        {% if cell.status == 'hva' %}
+          <span class="chip half"><span class="half-text">HVA</span></span>
+        {% elif cell.status %}
           <span class="chip" style="color:{{ STATUS[cell.status].color }};background:{{ STATUS[cell.status].color }}24">{{ cell.status|upper }}</span>
         {% else %}
           <span class="empty">–</span>
@@ -131,11 +133,16 @@
 <div class="legend">
   <span class="lg-title">Legend</span>
   {% for k in ORDER %}
-    <span class="lg-item"><span class="dot" style="background:{{ STATUS[k].color }}"></span>
-      <b style="color:{{ STATUS[k].color }}">{{ k|upper }}</b>{{ STATUS[k].label }}</span>
+    {% if k == 'hva' %}
+      <span class="lg-item"><span class="dot half"></span>
+        <b style="color:{{ STATUS[k].color }}">HVA</b>{{ STATUS[k].label }}</span>
+    {% else %}
+      <span class="lg-item"><span class="dot" style="background:{{ STATUS[k].color }}"></span>
+        <b style="color:{{ STATUS[k].color }}">{{ k|upper }}</b>{{ STATUS[k].label }}</span>
+    {% endif %}
   {% endfor %}
   <span class="lg-item"><span class="dot" style="background:#FFD500"></span>★ CZ public holiday</span>
-  <span class="lg-item"><span class="dot" style="background:#DC2626"></span>Coverage turns <b style="color:#B91C1C">&nbsp;red</b>&nbsp;below minimum</span>
+  <span class="lg-item"><span class="dot" style="background:#DC2626"></span>Coverage turns <b style="color:#B91C1C">&nbsp;red</b>&nbsp;below minimum (vacation is still allowed)</span>
 </div>
 </div>
 
