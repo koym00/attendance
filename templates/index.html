@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance · {{ model.month_name }} {{ model.year }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="brandbar"></div>
+
+<header class="topbar">
+  <div>
+    <div class="app-title">Attendance</div>
+    <div class="app-sub">Department coverage</div>
+  </div>
+  <div class="topbar-right">
+    <div class="nav">
+      <div class="month-label">{{ model.month_name }} {{ model.year }}</div>
+      <div class="nav-btns">
+        <a class="navbtn" href="?year={{ prev.y }}&month={{ prev.m }}&me={{ model.me_id }}">‹</a>
+        <a class="navbtn wide" href="?year={{ today.y }}&month={{ today.m }}&me={{ model.me_id }}">Today</a>
+        <a class="navbtn" href="?year={{ next.y }}&month={{ next.m }}&me={{ model.me_id }}">›</a>
+      </div>
+    </div>
+    <div class="adminzone">
+      {% if is_admin %}
+        <span class="admin-badge">Admin</span>
+        <button class="ghost" id="adminLogout">Logout</button>
+      {% else %}
+        <button class="ghost" id="adminLoginBtn">Admin</button>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<div id="calendarView">
+<div class="toolbar">
+  <form method="get" class="me-form">
+    <span class="muted">I am</span>
+    <input type="hidden" name="year" value="{{ model.year }}">
+    <input type="hidden" name="month" value="{{ model.month }}">
+    <select name="me" onchange="this.form.submit()">
+      {% for m in model.members %}
+        <option value="{{ m.id }}" {{ 'selected' if m.id == model.me_id }}>{{ m.name }}</option>
+      {% endfor %}
+    </select>
+    {% if model.my_stats %}
+    <span class="divider"></span>
+    <span class="stat"><b>{{ model.my_stats.allowance }} h</b><i>Allowance {{ model.year }}</i></span>
+    <span class="stat"><b id="statUsed">{{ model.my_stats.used_days }} d</b><i>Used {{ model.year }}</i></span>
+    <span class="stat ok"><b id="statRemaining">{{ model.my_stats.rem_days }} d</b><i>Remaining {{ model.year }}</i></span>
+    {% endif %}
+  </form>
+  {% if is_admin %}
+  <button class="ghost" id="manageOpenBtn">Manage teams &amp; people</button>
+  {% endif %}
+</div>
+
+{% macro person_row(p) %}
+  <div class="row person">
+    <div class="namecol {{ 'me' if p.is_me }}">
+      <span class="pname">{{ p.name }}</span>
+      {% if p.is_me %}<span class="tag">ME</span>{% endif %}
+    </div>
+    {% for cell in p.cells %}
+      <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if p.is_me else 'locked' }}"
+           data-member="{{ p.id }}" data-date="{{ cell.iso }}" data-status="{{ cell.status or '' }}">
+        {% if cell.status %}
+          <span class="chip" style="color:{{ STATUS[cell.status].color }};background:{{ STATUS[cell.status].color }}24">{{ cell.status|upper }}</span>
+        {% else %}
+          <span class="empty">–</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+<div class="scroll">
+  <div class="grid" style="--cols: {{ model.days|length }}">
+    <!-- date header -->
+    <div class="row head">
+      <div class="namecol corner">Employee</div>
+      {% for day in model.days %}
+        <div class="daycol head-cell {{ 'weekend' if day.weekend }} {{ 'holiday' if day.holiday }} {{ 'today' if day.today }}"
+             {% if day.holiday %}title="{{ day.holiday }}"{% endif %}>
+          <div class="dnum">{{ day.d }}</div>
+          <div class="dwd">{{ '★' if day.holiday else day.wd }}</div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% for team in model.teams %}
+      <!-- coverage strip -->
+      <div class="row coverage" data-team="{{ team.id }}">
+        <div class="namecol teamcol">
+          <div class="tname">{{ team.name }}</div>
+          <div class="tmeta">min {{ team.min }} working · {{ team.count }} people</div>
+        </div>
+        {% for c in team.coverage %}
+          <div class="daycol cov cov-{{ c.state }}" data-cov data-team="{{ team.id }}" data-date="{{ c.iso }}"
+               title="{{ 'Weekend / holiday' if c.state == 'off' else c.working ~ ' working · minimum ' ~ c.min }}">
+            <span class="bar"></span>
+            <span class="cnum">{{ '·' if c.state == 'off' else c.working }}</span>
+            {% if c.state == 'low' %}<span class="low">LOW</span>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- people -->
+      {% for p in team.people %}{{ person_row(p) }}{% endfor %}
+    {% endfor %}
+
+    {% if model.unassigned %}
+      <!-- unassigned -->
+      <div class="row coverage unassigned-head">
+        <div class="namecol teamcol">
+          <div class="tname">Unassigned</div>
+          <div class="tmeta">{{ model.unassigned|length }} people · no coverage tracked</div>
+        </div>
+        {% for day in model.days %}
+          <div class="daycol cov cov-off"><span class="bar"></span><span class="cnum">·</span></div>
+        {% endfor %}
+      </div>
+      {% for p in model.unassigned %}{{ person_row(p) }}{% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- legend -->
+<div class="legend">
+  <span class="lg-title">Legend</span>
+  {% for k in ORDER %}
+    <span class="lg-item"><span class="dot" style="background:{{ STATUS[k].color }}"></span>
+      <b style="color:{{ STATUS[k].color }}">{{ k|upper }}</b>{{ STATUS[k].label }}</span>
+  {% endfor %}
+  <span class="lg-item"><span class="dot" style="background:#FFD500"></span>★ CZ public holiday</span>
+  <span class="lg-item"><span class="dot" style="background:#DC2626"></span>Coverage turns <b style="color:#B91C1C">&nbsp;red</b>&nbsp;below minimum</span>
+</div>
+</div>
+
+{% if is_admin %}
+<!-- manage panel -->
+<div id="manage" class="manage">
+  <div class="manage-head">
+    <h2>Manage teams &amp; people</h2>
+    <button type="button" class="primary" id="manageSaveBtn">Save &amp; back to calendar</button>
+  </div>
+  <div class="mcard">
+    <h3>Teams</h3>
+    <div class="mlist">
+      {% for team in model.teams %}
+        <div class="mrow">
+          <span>{{ team.name }}<i class="mcount">{{ team.count }} {{ 'person' if team.count == 1 else 'people' }}</i></span>
+          <form method="post" action="/team/min" class="inlineform">
+            <input type="hidden" name="team_id" value="{{ team.id }}">
+            <span class="minedit">min
+              <input name="min" type="number" min="0" value="{{ team.min }}" onchange="this.form.requestSubmit()">
+            </span>
+          </form>
+          <form method="post" action="/team/delete" class="inlineform"
+                data-confirm="Delete {{ team.name }} and all its members?">
+            <input type="hidden" name="team_id" value="{{ team.id }}">
+            <button type="submit" class="danger small" title="Delete team">✕</button>
+          </form>
+        </div>
+      {% else %}
+        <p class="empty-hint">No teams yet — add one below.</p>
+      {% endfor %}
+    </div>
+    <div class="msection">
+      <h4>Add team</h4>
+      <form method="post" action="/team">
+        <label>Team name</label>
+        <input name="name" placeholder="e.g. Settlements" required>
+        <label>Minimum people working</label>
+        <input name="min" type="number" min="0" value="1">
+        <button type="submit">Add team</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mcard">
+    <h3>People</h3>
+    {% for team in model.teams %}
+      {% set team_members = model.members | selectattr('team_id', 'equalto', team.id) | list %}
+      {% if team_members %}
+        <div class="people-group">
+          <div class="people-group-head">{{ team.name }}</div>
+          <div class="mlist">
+            {% for m in team_members %}
+              <div class="mrow">
+                <span>{{ m.name }}</span>
+                <form method="post" action="/member/team" class="inlineform">
+                  <input type="hidden" name="member_id" value="{{ m.id }}">
+                  <select name="team_id" onchange="this.form.requestSubmit()">
+                    <option value="" {{ 'selected' if m.team_id is none }}>— Unassigned —</option>
+                    {% for t in model.teams %}
+                      <option value="{{ t.id }}" {{ 'selected' if t.id == m.team_id }}>{{ t.name }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                <form method="post" action="/member/delete" class="inlineform"
+                      data-confirm="Remove {{ m.name }}?">
+                  <input type="hidden" name="member_id" value="{{ m.id }}">
+                  <button type="submit" class="danger small" title="Remove person">✕</button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+    {% set unassigned_people = model.members | selectattr('team_id', 'none') | list %}
+    {% if unassigned_people %}
+      <div class="people-group">
+        <div class="people-group-head">Unassigned</div>
+        <div class="mlist">
+          {% for m in unassigned_people %}
+            <div class="mrow">
+              <span>{{ m.name }}</span>
+              <form method="post" action="/member/team" class="inlineform">
+                <input type="hidden" name="member_id" value="{{ m.id }}">
+                <select name="team_id" onchange="this.form.requestSubmit()">
+                  <option value="" selected>— Unassigned —</option>
+                  {% for t in model.teams %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+              <form method="post" action="/member/delete" class="inlineform"
+                    data-confirm="Remove {{ m.name }}?">
+                <input type="hidden" name="member_id" value="{{ m.id }}">
+                <button type="submit" class="danger small" title="Remove person">✕</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    {% if not model.members %}
+      <p class="empty-hint">No people yet — add one below.</p>
+    {% endif %}
+    <div class="msection">
+      <h4>Add person</h4>
+      <form method="post" action="/member">
+        <label>Name</label>
+        <input name="name" placeholder="Full name" required>
+        <label>Team</label>
+        <select name="team_id">
+          <option value="">— Unassigned —</option>
+          {% for team in model.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
+        </select>
+        <label>Vacation allowance (hours)</label>
+        <input name="allowance" type="number" value="200">
+        <button type="submit">Add person</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- admin login modal -->
+<div id="adminModal" class="modal-backdrop" hidden>
+  <div class="modal">
+    <h3>Admin sign in</h3>
+    <form id="adminForm">
+      <label>Username</label>
+      <input name="username" autocomplete="username" required>
+      <label>Password</label>
+      <input name="password" type="password" autocomplete="current-password" required>
+      <div class="modal-error" id="adminError" hidden>Invalid username or password</div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="adminCancel">Cancel</button>
+        <button type="submit">Sign in</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- status picker (built by JS) -->
+<div id="pop" class="pop" hidden></div>
+
+<!-- toast notification (built by JS) -->
+<div id="toast" class="toast" hidden></div>
+
+<script>
+  window.STATUS = {{ STATUS|tojson }};
+  window.ORDER = {{ ORDER|tojson }};
+  window.ME_ID = {{ model.me_id }};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
