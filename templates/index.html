@@ -262,12 +262,28 @@
           <div class="people-group-head">Unassigned</div>
           <div class="mlist">
             {% for m in model.current_unassigned_members %}
-              <div class="mrow"><div class="mrow-top"><span class="pname">{{ m.name }}</span></div></div>
+              <div class="mrow">
+                <div class="mrow-top">
+                  <span class="pname">{{ m.name }}</span>
+                  <form method="post" action="/member/delete" class="inlineform"
+                        data-confirm="Remove {{ m.name }}?">
+                    <input type="hidden" name="member_id" value="{{ m.id }}">
+                    <button type="submit" class="danger small" title="Remove person">✕</button>
+                  </form>
+                </div>
+              </div>
             {% endfor %}
           </div>
         </div>
       {% endif %}
     </div>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <p class="flash-error">⚠ {{ msg }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     {% if not model.members %}
       <p class="empty-hint">No people yet — add one below.</p>
     {% endif %}
@@ -285,6 +301,17 @@
           </span>
         </div>
         <small class="allowance-hint" id="allowanceHint">200 hours = 25 days</small>
+        {% if model.teams %}
+        <label>Team</label>
+        <div class="team-checks">
+          {% for team in model.teams %}
+            <label class="team-check">
+              <input type="checkbox" name="team_ids" value="{{ team.id }}">
+              {{ team.name }}
+            </label>
+          {% endfor %}
+        </div>
+        {% endif %}
         <button type="submit">Add person</button>
       </form>
     </div>

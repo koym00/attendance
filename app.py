@@ -19,7 +19,7 @@ from datetime import date, timedelta
 from calendar import monthrange
 from functools import wraps
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, abort
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, abort, flash, get_flashed_messages
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "attendance.db")
@@ -400,28 +400,44 @@ def build_model(year, month, me_id):
     }
     unassigned = build_people([m for m in members if m["id"] in unassigned_ids])
 
-    # admin "People" panel data â€" server-rendered, instant-save per action
+    # admin "People" panel data — server-rendered, instant-save per action.
+    # current_team_members includes BOTH currently-active members AND those with
+    # a scheduled future join, so that a person who was added with a start_date
+    # in the next month is still visible under that team (with a "from" badge).
     today_iso = date.today().isoformat()
     team_name_by_id = {t["id"]: t["name"] for t in teams_rows}
+
+    # all team_ids each member is active in OR scheduled to join
+    member_all_team_ids = {}
+    for mid, team_id, start, end in memberships:
+        if end and end < today_iso:
+            continue  # fully in the past, skip
+        member_all_team_ids.setdefault(mid, set()).add(team_id)
+
     current_team_members = {t["id"]: [] for t in teams_rows}
     current_unassigned_members = []
-    member_pending_teams = {}   # mid -> [{team_id, team_name, start_date}]
+    member_pending_teams = {}
     for m in members:
-        tids = sorted(teams_on(m["id"], today_iso))
-        if not tids:
+        all_tids = member_all_team_ids.get(m["id"], set())
+        if not all_tids:
             current_unassigned_members.append(m)
         else:
-            for tid in tids:
-                current_team_members[tid].append(m)
+            for tid in sorted(all_tids):
+                if tid in current_team_members:
+                    current_team_members[tid].append(m)
+
     for mid, team_id, start, end in memberships:
         if not (end and end < today_iso):   # still relevant (active or future)
-            if start and start > today_iso:
+            if start:
+                # show "from [date]" badge for any membership with an explicit
+                # start date — covers today (just added), future (planned) and
+                # past explicit starts (historical record of when they joined)
                 member_pending_teams.setdefault(mid, []).append({
                     "team_id": team_id,
                     "team_name": team_name_by_id.get(team_id, "?"),
                     "start_date": start,
                 })
-            elif end and end >= today_iso:
+            if end and end >= today_iso:
                 member_pending_teams.setdefault(mid, []).append({
                     "team_id": team_id,
                     "team_name": team_name_by_id.get(team_id, "?"),
@@ -656,13 +672,20 @@ def add_member():
         allowance = allowance * 8
     if name:
         conn = db()
-        cur = conn.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
-        member_id = cur.lastrowid
-        conn.executemany(
-            "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
-            [(member_id, team_id) for team_id in set(team_ids)],
-        )
-        conn.commit(); conn.close()
+        existing = conn.execute("SELECT id FROM members WHERE name=?", (name,)).fetchone()
+        if existing:
+            conn.close()
+            flash(f"A person named '{name}' already exists.")
+        else:
+            cur = conn.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
+            member_id = cur.lastrowid
+            today_iso = date.today().isoformat()
+            conn.executemany(
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
+                [(member_id, team_id, today_iso) for team_id in set(team_ids)],
+            )
+            conn.commit()
+            conn.close()
     return redirect(request.referrer or url_for("index"))
 
 
@@ -744,11 +767,12 @@ def member_team_add():
     member_id = request.form.get("member_id", type=int)
     team_id = request.form.get("team_id", type=int)
     if member_id and team_id:
+        today = date.today().isoformat()
         conn = db()
         try:
             conn.execute(
-                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
-                (member_id, team_id),
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
+                (member_id, team_id, today),
             )
             conn.commit()
         finally:
