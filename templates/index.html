@@ -273,11 +273,18 @@
     {% endif %}
     <div class="msection">
       <h4>Add person</h4>
-      <form method="post" action="/member">
+      <form method="post" action="/member" id="addPersonForm">
         <label>Name</label>
         <input name="name" placeholder="Full name" required>
-        <label>Vacation allowance (hours)</label>
-        <input name="allowance" type="number" value="200">
+        <label>Vacation allowance</label>
+        <div class="allowance-row">
+          <input name="allowance" id="allowanceInput" type="number" min="0" value="200">
+          <span class="allowance-toggle">
+            <label class="allow-opt"><input type="radio" name="allowance_unit" value="hours" checked onchange="toggleAllowanceUnit(this)"> hours</label>
+            <label class="allow-opt"><input type="radio" name="allowance_unit" value="days" onchange="toggleAllowanceUnit(this)"> days</label>
+          </span>
+        </div>
+        <small class="allowance-hint" id="allowanceHint">200 hours = 25 days</small>
         <button type="submit">Add person</button>
       </form>
     </div>

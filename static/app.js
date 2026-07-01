@@ -283,3 +283,30 @@ function wireManageForms() {
 }
 
 wireManageForms();
+
+function toggleAllowanceUnit(radio) {
+  const input = document.getElementById("allowanceInput");
+  const hint = document.getElementById("allowanceHint");
+  if (!input || !hint) return;
+  if (radio.value === "days") {
+    input.value = Math.round(parseInt(input.value || 200, 10) / 8) || 25;
+  } else {
+    input.value = (parseInt(input.value || 25, 10) * 8) || 200;
+  }
+  updateAllowanceHint();
+}
+
+function updateAllowanceHint() {
+  const input = document.getElementById("allowanceInput");
+  const hint = document.getElementById("allowanceHint");
+  if (!input || !hint) return;
+  const checked = document.querySelector('input[name="allowance_unit"]:checked');
+  const v = parseInt(input.value, 10) || 0;
+  hint.textContent = checked && checked.value === "days"
+    ? v + " days = " + (v * 8) + " hours"
+    : v + " hours = " + Math.round(v / 8) + " days";
+}
+
+document.addEventListener("input", (e) => {
+  if (e.target.id === "allowanceInput") updateAllowanceHint();
+});

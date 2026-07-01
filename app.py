@@ -1,5 +1,5 @@
 ﻿"""
-Team Attendance Planner â€” Flask backend.
+Team Attendance Planner â€" Flask backend.
 
 Single job: show whether every team has enough people working each day,
 and let each person set their own daily status.
@@ -43,20 +43,23 @@ def admin_required(view):
 #  Status configuration (shared with the front-end via the template)  #
 # ------------------------------------------------------------------ #
 STATUS = {
-    "ofc": {"label": "In office",         "color": "#16A34A", "working": True},
-    "wfh": {"label": "Home office",       "color": "#2563EB", "working": True},
-    "trp": {"label": "Business trip",     "color": "#7C3AED", "working": True},
+    "wrk": {"label": "Work",              "color": "#16A34A", "working": True},
     "vac": {"label": "Vacation",          "color": "#E08600", "working": False},
     "hva": {"label": "Half-day vacation", "color": "#E08600", "working": False},
-    "sck": {"label": "Sick",              "color": "#DC2626", "working": False},
-    "flx": {"label": "Flexi day",         "color": "#0D9488", "working": False},
-    "fre": {"label": "Free",              "color": "#64748B", "working": False},
+    "flx": {"label": "Flexi Day",         "color": "#0D9488", "working": False},
+    "rst": {"label": "Restart Day",       "color": "#7C3AED", "working": False},
+    "ple": {"label": "Paid Leave",        "color": "#2563EB", "working": False},
+    "fic": {"label": "Fictional",         "color": "#DB2777", "working": False},
+    "upl": {"label": "Unpaid Leave",      "color": "#64748B", "working": False},
+    "lyr": {"label": "Last Year",         "color": "#0891B2", "working": False},
+    "bdy": {"label": "Birthday",          "color": "#D97706", "working": False},
 }
-ORDER = ["ofc", "wfh", "trp", "vac", "hva", "sck", "flx", "fre"]
+ORDER = ["wrk", "vac", "hva", "flx", "rst", "ple", "fic", "upl", "lyr", "bdy"]
 WORKING = {k for k, v in STATUS.items() if v["working"]}
 
-# Vacation days consumed per status (full vacation = 1 day, half-day = 0.5).
-VAC_WEIGHT = {"vac": 1.0, "hva": 0.5}
+# Days consumed from the yearly allowance per status.
+# Statuses not listed here (upl, lyr, bdy) don't touch the allowance.
+VAC_WEIGHT = {"vac": 1.0, "hva": 0.5, "flx": 1.0, "rst": 1.0, "ple": 1.0, "fic": 1.0}
 
 MONTHS = ["", "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
@@ -184,6 +187,12 @@ def init_db():
         conn.commit()
         conn.execute("PRAGMA foreign_keys = ON")
 
+    # Migrate attendance rows that still use old status codes to their new equivalents.
+    old_to_new = {"ofc": "wrk", "wfh": "wrk", "trp": "wrk", "sck": "upl", "fre": "upl"}
+    for old, new in old_to_new.items():
+        conn.execute("UPDATE attendance SET status=? WHERE status=?", (new, old))
+    conn.commit()
+
     # Seed demo data once, so coverage gaps are visible out of the box.
     if conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0] == 0:
         cur = conn.cursor()
@@ -239,19 +248,35 @@ def effective_status(stored, weekend, holiday):
         return stored
     if weekend or holiday:
         return None
-    return "ofc"
+    return "wrk"
 
 
 def vacation_days_used(conn, member_id, year, exclude_dates=None):
-    """Total vacation-equivalent days (full=1, half-day=0.5) used by member_id
-    in the given calendar year, optionally excluding specific dates (e.g. ones
-    about to be overwritten by the current request)."""
+    """Total allowance-consuming days used by member_id in the given calendar
+    year. Statuses not in VAC_WEIGHT (upl, lyr, bdy) don't count here."""
     exclude_dates = exclude_dates or set()
+    placeholders = ",".join(f"'{k}'" for k in VAC_WEIGHT)
     rows = conn.execute(
-        "SELECT day, status FROM attendance WHERE member_id=? AND status IN ('vac','hva') AND day LIKE ?",
+        f"SELECT day, status FROM attendance WHERE member_id=? AND status IN ({placeholders}) AND day LIKE ?",
         (member_id, f"{year}-%"),
     ).fetchall()
     return sum(VAC_WEIGHT[r["status"]] for r in rows if r["day"] not in exclude_dates)
+
+
+def birthday_block(conn, member_id, dates, new_status):
+    """Allow at most one birthday day per calendar year."""
+    if new_status != "bdy":
+        return None
+    for d in dates:
+        year = d[:4]
+        already = conn.execute(
+            "SELECT COUNT(*) FROM attendance WHERE member_id=? AND status='bdy' AND day LIKE ? AND day NOT IN (%s)"
+            % ",".join("?" * len(dates)),
+            (member_id, f"{year}-%", *dates),
+        ).fetchone()[0]
+        if already >= 1:
+            return {"year": year}
+    return None
 
 
 def month_days(year, month):
@@ -375,7 +400,7 @@ def build_model(year, month, me_id):
     }
     unassigned = build_people([m for m in members if m["id"] in unassigned_ids])
 
-    # admin "People" panel data â€” server-rendered, instant-save per action
+    # admin "People" panel data â€" server-rendered, instant-save per action
     today_iso = date.today().isoformat()
     team_name_by_id = {t["id"]: t["name"] for t in teams_rows}
     current_team_members = {t["id"]: [] for t in teams_rows}
@@ -526,7 +551,7 @@ def set_status():
     if non_workdays:
         return jsonify(
             ok=False,
-            error="Weekends and public holidays don't carry a status â€” nothing to set on "
+            error="Weekends and public holidays don't carry a status - nothing to set on "
                   + ", ".join(non_workdays) + ".",
         ), 409
 
@@ -537,8 +562,16 @@ def set_status():
         return jsonify(
             ok=False,
             error=(f"{vac_block['name']} only has {vac_block['allowed_days']} vacation days "
-                   f"for {vac_block['year']} ({vac_block['used_before']} already used) â€” "
+                   f"for {vac_block['year']} ({vac_block['used_before']} already used) - "
                    f"this request would use {vac_block['used_after']}."),
+        ), 409
+
+    bday_block = birthday_block(conn, member_id, dates, status)
+    if bday_block:
+        conn.close()
+        return jsonify(
+            ok=False,
+            error=f"Birthday day already used in {bday_block['year']} - only one per year is allowed.",
         ), 409
 
     try:
@@ -557,7 +590,7 @@ def set_status():
 
     year, month = int(dates[0][:4]), int(dates[0][5:7])
     model = build_model(year, month, member_id)
-    # a member can belong to several teams at once â€” report coverage for all
+    # a member can belong to several teams at once â€" report coverage for all
     # of the teams they appeared in during this month
     affected_teams = [
         {"team_id": t["id"], "coverage": t["coverage"]}
@@ -619,6 +652,8 @@ def add_member():
     name = (request.form.get("name") or "").strip()
     team_ids = request.form.getlist("team_ids", type=int)
     allowance = request.form.get("allowance", type=int) or 200
+    if request.form.get("allowance_unit") == "days":
+        allowance = allowance * 8
     if name:
         conn = db()
         cur = conn.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
@@ -657,7 +692,7 @@ def update_member_teams_batch():
     """Apply a batch of team-membership edits made in the "Manage teams &
     people" panel. Body: JSON {"add": [...], "remove": [...], "update": [...]},
     each item {"member_id", "team_id"} plus "start_date"/"end_date" for add
-    and update. Only rows still relevant today or later are ever touched â€”
+    and update. Only rows still relevant today or later are ever touched â€"
     past history is never rewritten."""
     data = request.get_json(force=True) or {}
     today = date.today()
@@ -692,10 +727,10 @@ def update_member_teams_batch():
             if not row:
                 continue
             if row["start_date"] and row["start_date"] >= today_iso:
-                # not started yet â€” cancel outright
+                # not started yet â€" cancel outright
                 conn.execute("DELETE FROM member_teams WHERE id=?", (row["id"],))
             else:
-                # active â€” ends as of today
+                # active â€" ends as of today
                 conn.execute("UPDATE member_teams SET end_date=? WHERE id=?", (yesterday_iso, row["id"]))
         conn.commit()
     finally:
