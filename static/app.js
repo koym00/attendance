@@ -82,30 +82,32 @@ async function applyStatus(status) {
       return;
     }
 
-    // repaint edited cells
+    // repaint edited cells — a member can appear under more than one team
+    // block, so update every matching cell, not just the first
     (data.cells || []).forEach((c) => {
-      const cell = document.querySelector(`.cell[data-member="${member}"][data-date="${c.date}"]`);
-      if (cell) {
+      document.querySelectorAll(`.cell[data-member="${member}"][data-date="${c.date}"]`).forEach((cell) => {
         cell.dataset.status = c.status || "";
         cell.innerHTML = chipHtml(c.status);
-      }
+      });
     });
-    // repaint the team's coverage row
-    (data.coverage || []).forEach((c) => {
-      const cov = document.querySelector(`[data-cov][data-team="${data.team_id}"][data-date="${c.iso}"]`);
-      if (!cov) return;
-      cov.classList.remove("cov-off", "cov-ok", "cov-tight", "cov-low");
-      cov.classList.add(COV_CLASS[c.state]);
-      cov.title = c.state === "off" ? "Weekend / holiday" : `${c.working} working · minimum ${c.min}`;
-      cov.querySelector(".cnum").textContent = c.state === "off" ? "·" : c.working;
-      const low = cov.querySelector(".low");
-      if (c.state === "low" && !low) {
-        const s = document.createElement("span");
-        s.className = "low"; s.textContent = "LOW";
-        cov.appendChild(s);
-      } else if (c.state !== "low" && low) {
-        low.remove();
-      }
+    // repaint coverage rows for every team this member belongs to
+    (data.teams || []).forEach((teamResult) => {
+      (teamResult.coverage || []).forEach((c) => {
+        const cov = document.querySelector(`[data-cov][data-team="${teamResult.team_id}"][data-date="${c.iso}"]`);
+        if (!cov) return;
+        cov.classList.remove("cov-off", "cov-ok", "cov-tight", "cov-low");
+        cov.classList.add(COV_CLASS[c.state]);
+        cov.title = c.state === "off" ? "Weekend / holiday" : `${c.working} working · minimum ${c.min}`;
+        cov.querySelector(".cnum").textContent = c.state === "off" ? "·" : c.working;
+        const low = cov.querySelector(".low");
+        if (c.state === "low" && !low) {
+          const s = document.createElement("span");
+          s.className = "low"; s.textContent = "LOW";
+          cov.appendChild(s);
+        } else if (c.state !== "low" && low) {
+          low.remove();
+        }
+      });
     });
 
     // repaint my allowance stats, if this is my own row
@@ -264,7 +266,13 @@ function wireManageForms() {
         const doc = new DOMParser().parseFromString(html, "text/html");
         const newManage = doc.getElementById("manage");
         if (newManage) {
+          const openDetail = manage.querySelector("details[open]");
+          const openMember = openDetail ? openDetail.dataset.member : null;
           manage.innerHTML = newManage.innerHTML;
+          if (openMember) {
+            const reopened = manage.querySelector(`details[data-member="${openMember}"]`);
+            if (reopened) reopened.open = true;
+          }
           wireManageForms();
         }
       } catch (err) {

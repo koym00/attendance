@@ -1,5 +1,5 @@
-"""
-Team Attendance Planner — Flask backend.
+﻿"""
+Team Attendance Planner â€” Flask backend.
 
 Single job: show whether every team has enough people working each day,
 and let each person set their own daily status.
@@ -94,19 +94,19 @@ def cz_holidays(year: int) -> dict[str, str]:
         return _holiday_cache[year]
     es = easter_sunday(year)
     items = {
-        date(year, 1, 1):   "Den obnovy samostatného českého státu",
-        es - timedelta(days=2): "Velký pátek",
-        es + timedelta(days=1): "Velikonoční pondělí",
-        date(year, 5, 1):   "Svátek práce",
-        date(year, 5, 8):   "Den vítězství",
-        date(year, 7, 5):   "Den slovanských věrozvěstů Cyrila a Metoděje",
-        date(year, 7, 6):   "Den upálení mistra Jana Husa",
-        date(year, 9, 28):  "Den české státnosti",
-        date(year, 10, 28): "Den vzniku samostatného československého státu",
+        date(year, 1, 1):   "Den obnovy samostatnĂ©ho ÄŤeskĂ©ho stĂˇtu",
+        es - timedelta(days=2): "VelkĂ˝ pĂˇtek",
+        es + timedelta(days=1): "VelikonoÄŤnĂ­ pondÄ›lĂ­",
+        date(year, 5, 1):   "SvĂˇtek prĂˇce",
+        date(year, 5, 8):   "Den vĂ­tÄ›zstvĂ­",
+        date(year, 7, 5):   "Den slovanskĂ˝ch vÄ›rozvÄ›stĹŻ Cyrila a MetodÄ›je",
+        date(year, 7, 6):   "Den upĂˇlenĂ­ mistra Jana Husa",
+        date(year, 9, 28):  "Den ÄŤeskĂ© stĂˇtnosti",
+        date(year, 10, 28): "Den vzniku samostatnĂ©ho ÄŤeskoslovenskĂ©ho stĂˇtu",
         date(year, 11, 17): "Den boje za svobodu a demokracii",
-        date(year, 12, 24): "Štědrý den",
-        date(year, 12, 25): "1. svátek vánoční",
-        date(year, 12, 26): "2. svátek vánoční",
+        date(year, 12, 24): "Ĺ tÄ›drĂ˝ den",
+        date(year, 12, 25): "1. svĂˇtek vĂˇnoÄŤnĂ­",
+        date(year, 12, 26): "2. svĂˇtek vĂˇnoÄŤnĂ­",
     }
     result = {d.isoformat(): name for d, name in items.items()}
     _holiday_cache[year] = result
@@ -135,8 +135,14 @@ def init_db():
         CREATE TABLE IF NOT EXISTS members (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
             name      TEXT NOT NULL,
-            team_id   INTEGER REFERENCES teams(id) ON DELETE CASCADE,
             allowance INTEGER NOT NULL DEFAULT 200
+        );
+        CREATE TABLE IF NOT EXISTS member_teams (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+            team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            start_date  TEXT,                 -- ISO date; NULL = since the beginning
+            end_date    TEXT                  -- ISO date; NULL = still active
         );
         CREATE TABLE IF NOT EXISTS attendance (
             member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
@@ -148,25 +154,33 @@ def init_db():
     )
     conn.commit()
 
-    # Migrate older DBs where members.team_id was NOT NULL, so people can
-    # exist without being assigned to a team yet.
+    # Migrate older DBs that still have members.team_id (a single, current-only
+    # team assignment) into member_teams (date-ranged, supports multiple teams
+    # and preserves history of past assignments).
     team_col = next((c for c in conn.execute("PRAGMA table_info(members)") if c["name"] == "team_id"), None)
-    if team_col and team_col["notnull"]:
+    if team_col:
+        rows = conn.execute("SELECT id, team_id FROM members WHERE team_id IS NOT NULL").fetchall()
+        if rows:
+            conn.executemany(
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+                [(r["id"], r["team_id"]) for r in rows],
+            )
         conn.execute("PRAGMA foreign_keys = OFF")
-        conn.executescript(
-            """
-            CREATE TABLE members_new (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                name      TEXT NOT NULL,
-                team_id   INTEGER REFERENCES teams(id) ON DELETE CASCADE,
-                allowance INTEGER NOT NULL DEFAULT 200
-            );
-            INSERT INTO members_new(id, name, team_id, allowance)
-                SELECT id, name, team_id, allowance FROM members;
-            DROP TABLE members;
-            ALTER TABLE members_new RENAME TO members;
-            """
-        )
+        try:
+            conn.execute("ALTER TABLE members DROP COLUMN team_id")
+        except sqlite3.OperationalError:
+            conn.executescript(
+                """
+                CREATE TABLE members_new (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name      TEXT NOT NULL,
+                    allowance INTEGER NOT NULL DEFAULT 200
+                );
+                INSERT INTO members_new(id, name, allowance) SELECT id, name, allowance FROM members;
+                DROP TABLE members;
+                ALTER TABLE members_new RENAME TO members;
+                """
+            )
         conn.commit()
         conn.execute("PRAGMA foreign_keys = ON")
 
@@ -179,31 +193,35 @@ def init_db():
         risk = cur.lastrowid
 
         people = [
-            ("Anna Horáková", ops, 200),
-            ("Marek Dvořák", ops, 200),
-            ("Petra Nová", ops, 200),
-            ("Jakub Černý", risk, 200),
-            ("Lucia Veselá", risk, 240),
+            ("Anna HorĂˇkovĂˇ", ops, 200),
+            ("Marek DvoĹ™Ăˇk", ops, 200),
+            ("Petra NovĂˇ", ops, 200),
+            ("Jakub ÄŚernĂ˝", risk, 200),
+            ("Lucia VeselĂˇ", risk, 240),
         ]
         ids = {}
         for name, team, allow in people:
-            cur.execute("INSERT INTO members(name, team_id, allowance) VALUES (?,?,?)", (name, team, allow))
+            cur.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allow))
             ids[name] = cur.lastrowid
+            cur.execute(
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+                (ids[name], team),
+            )
 
         seed = [
-            ("Petra Nová", "2026-06-01", "wfh"), ("Petra Nová", "2026-06-08", "wfh"),
-            ("Petra Nová", "2026-06-15", "wfh"), ("Petra Nová", "2026-06-22", "wfh"),
-            ("Anna Horáková", "2026-06-03", "vac"), ("Marek Dvořák", "2026-06-03", "wfh"),
-            ("Petra Nová", "2026-06-03", "wfh"),
-            ("Petra Nová", "2026-06-10", "vac"), ("Marek Dvořák", "2026-06-10", "sck"),
-            ("Anna Horáková", "2026-06-09", "trp"), ("Anna Horáková", "2026-06-10", "trp"),
-            ("Marek Dvořák", "2026-06-16", "vac"), ("Marek Dvořák", "2026-06-17", "vac"),
-            ("Marek Dvořák", "2026-06-18", "vac"),
-            ("Jakub Černý", "2026-06-17", "vac"), ("Lucia Veselá", "2026-06-17", "sck"),
-            ("Jakub Černý", "2026-06-04", "trp"), ("Jakub Černý", "2026-06-05", "trp"),
-            ("Lucia Veselá", "2026-06-11", "flx"), ("Petra Nová", "2026-06-25", "fre"),
-            ("Anna Horáková", "2026-06-29", "flx"),
-            ("Petra Nová", "2026-06-29", "vac"), ("Petra Nová", "2026-06-30", "vac"),
+            ("Petra NovĂˇ", "2026-06-01", "wfh"), ("Petra NovĂˇ", "2026-06-08", "wfh"),
+            ("Petra NovĂˇ", "2026-06-15", "wfh"), ("Petra NovĂˇ", "2026-06-22", "wfh"),
+            ("Anna HorĂˇkovĂˇ", "2026-06-03", "vac"), ("Marek DvoĹ™Ăˇk", "2026-06-03", "wfh"),
+            ("Petra NovĂˇ", "2026-06-03", "wfh"),
+            ("Petra NovĂˇ", "2026-06-10", "vac"), ("Marek DvoĹ™Ăˇk", "2026-06-10", "sck"),
+            ("Anna HorĂˇkovĂˇ", "2026-06-09", "trp"), ("Anna HorĂˇkovĂˇ", "2026-06-10", "trp"),
+            ("Marek DvoĹ™Ăˇk", "2026-06-16", "vac"), ("Marek DvoĹ™Ăˇk", "2026-06-17", "vac"),
+            ("Marek DvoĹ™Ăˇk", "2026-06-18", "vac"),
+            ("Jakub ÄŚernĂ˝", "2026-06-17", "vac"), ("Lucia VeselĂˇ", "2026-06-17", "sck"),
+            ("Jakub ÄŚernĂ˝", "2026-06-04", "trp"), ("Jakub ÄŚernĂ˝", "2026-06-05", "trp"),
+            ("Lucia VeselĂˇ", "2026-06-11", "flx"), ("Petra NovĂˇ", "2026-06-25", "fre"),
+            ("Anna HorĂˇkovĂˇ", "2026-06-29", "flx"),
+            ("Petra NovĂˇ", "2026-06-29", "vac"), ("Petra NovĂˇ", "2026-06-30", "vac"),
         ]
         for name, day, status in seed:
             cur.execute("INSERT INTO attendance(member_id, day, status) VALUES (?,?,?)",
@@ -256,32 +274,13 @@ def month_days(year, month):
     return days
 
 
-def coverage_for_team(team_min, people_statuses, days):
-    """people_statuses: list of {iso: stored_status}. Returns iso -> dict."""
-    out = {}
-    for day in days:
-        if day["weekend"] or day["holiday"]:
-            out[day["iso"]] = {"state": "off", "working": 0, "min": team_min}
-            continue
-        working = 0
-        for statuses in people_statuses:
-            eff = effective_status(statuses.get(day["iso"]), day["weekend"], day["holiday"])
-            if eff in WORKING:
-                working += 1
-        if working < team_min:
-            state = "low"
-        elif working == team_min:
-            state = "tight"
-        else:
-            state = "ok"
-        out[day["iso"]] = {"state": state, "working": working, "min": team_min}
-    return out
-
-
 def build_model(year, month, me_id):
     conn = db()
     teams_rows = conn.execute("SELECT * FROM teams ORDER BY id").fetchall()
     members_rows = conn.execute("SELECT * FROM members ORDER BY id").fetchall()
+    membership_rows = conn.execute(
+        "SELECT member_id, team_id, start_date, end_date FROM member_teams"
+    ).fetchall()
     att_rows = conn.execute(
         "SELECT member_id, day, status FROM attendance WHERE day LIKE ?",
         (f"{year:04d}-{month:02d}-%",),
@@ -291,6 +290,22 @@ def build_model(year, month, me_id):
     by_member = {}
     for r in att_rows:
         by_member.setdefault(r["member_id"], {})[r["day"]] = r["status"]
+
+    memberships = [
+        (r["member_id"], r["team_id"], r["start_date"], r["end_date"])
+        for r in membership_rows
+    ]
+
+    def teams_on(member_id, day_iso):
+        """Team ids member_id was an active member of on day_iso. A member can
+        belong to several teams at once; date ranges preserve history when a
+        membership is later closed and/or replaced."""
+        return {
+            team_id for (mid, team_id, start, end) in memberships
+            if mid == member_id
+            and (not start or start <= day_iso)
+            and (not end or end >= day_iso)
+        }
 
     days = month_days(year, month)
     members = [dict(r) for r in members_rows]
@@ -320,9 +335,29 @@ def build_model(year, month, me_id):
 
     teams = []
     for t in teams_rows:
-        team_members = [m for m in members if m["team_id"] == t["id"]]
-        people_statuses = [by_member.get(m["id"], {}) for m in team_members]
-        cov = coverage_for_team(t["min_working"], people_statuses, days)
+        # who was active in this team on each day of the month
+        day_member_ids = {
+            day["iso"]: {m["id"] for m in members if t["id"] in teams_on(m["id"], day["iso"])}
+            for day in days
+        }
+        # roster = anyone active in the team on at least one day this month,
+        # so a mid-month switch still shows them where they actually were
+        roster_ids = set().union(*day_member_ids.values()) if days else set()
+        team_members = [m for m in members if m["id"] in roster_ids]
+
+        cov = {}
+        for day in days:
+            if day["weekend"] or day["holiday"]:
+                cov[day["iso"]] = {"state": "off", "working": 0, "min": t["min_working"]}
+                continue
+            working = 0
+            for mid in day_member_ids[day["iso"]]:
+                eff = effective_status(by_member.get(mid, {}).get(day["iso"]), False, False)
+                if eff in WORKING:
+                    working += 1
+            min_w = t["min_working"]
+            state = "low" if working < min_w else "tight" if working == min_w else "ok"
+            cov[day["iso"]] = {"state": state, "working": working, "min": min_w}
 
         teams.append({
             "id": t["id"],
@@ -333,8 +368,40 @@ def build_model(year, month, me_id):
             "coverage": [{"iso": d["iso"], **cov[d["iso"]]} for d in days],
         })
 
-    unassigned_members = [m for m in members if m["team_id"] is None]
-    unassigned = build_people(unassigned_members)
+    # unassigned = anyone with at least one day this month with no active team
+    unassigned_ids = {
+        m["id"] for m in members
+        if any(not teams_on(m["id"], day["iso"]) for day in days)
+    }
+    unassigned = build_people([m for m in members if m["id"] in unassigned_ids])
+
+    # admin "People" panel data â€” server-rendered, instant-save per action
+    today_iso = date.today().isoformat()
+    team_name_by_id = {t["id"]: t["name"] for t in teams_rows}
+    current_team_members = {t["id"]: [] for t in teams_rows}
+    current_unassigned_members = []
+    member_pending_teams = {}   # mid -> [{team_id, team_name, start_date}]
+    for m in members:
+        tids = sorted(teams_on(m["id"], today_iso))
+        if not tids:
+            current_unassigned_members.append(m)
+        else:
+            for tid in tids:
+                current_team_members[tid].append(m)
+    for mid, team_id, start, end in memberships:
+        if not (end and end < today_iso):   # still relevant (active or future)
+            if start and start > today_iso:
+                member_pending_teams.setdefault(mid, []).append({
+                    "team_id": team_id,
+                    "team_name": team_name_by_id.get(team_id, "?"),
+                    "start_date": start,
+                })
+            elif end and end >= today_iso:
+                member_pending_teams.setdefault(mid, []).append({
+                    "team_id": team_id,
+                    "team_name": team_name_by_id.get(team_id, "?"),
+                    "end_date": end,
+                })
 
     # personal vacation stats for "me"
     me = next((m for m in members if m["id"] == me_id), None)
@@ -356,6 +423,10 @@ def build_model(year, month, me_id):
         "year": year, "month": month, "month_name": MONTHS[month],
         "me_id": me_id, "members": members, "days": days,
         "teams": teams, "unassigned": unassigned, "my_stats": my_stats,
+        "today_iso": today_iso,
+        "current_team_members": current_team_members,
+        "current_unassigned_members": current_unassigned_members,
+        "member_pending_teams": member_pending_teams,
     }
 
 
@@ -455,21 +526,18 @@ def set_status():
     if non_workdays:
         return jsonify(
             ok=False,
-            error="Weekends and public holidays don't carry a status — nothing to set on "
+            error="Weekends and public holidays don't carry a status â€” nothing to set on "
                   + ", ".join(non_workdays) + ".",
         ), 409
 
     conn = db()
-    row = conn.execute("SELECT team_id FROM members WHERE id=?", (member_id,)).fetchone()
-    team_id = row["team_id"] if row else None
-
     vac_block = vacation_allowance_block(conn, member_id, dates, status)
     if vac_block:
         conn.close()
         return jsonify(
             ok=False,
             error=(f"{vac_block['name']} only has {vac_block['allowed_days']} vacation days "
-                   f"for {vac_block['year']} ({vac_block['used_before']} already used) — "
+                   f"for {vac_block['year']} ({vac_block['used_before']} already used) â€” "
                    f"this request would use {vac_block['used_after']}."),
         ), 409
 
@@ -489,7 +557,13 @@ def set_status():
 
     year, month = int(dates[0][:4]), int(dates[0][5:7])
     model = build_model(year, month, member_id)
-    team = next((t for t in model["teams"] if t["id"] == team_id), None)
+    # a member can belong to several teams at once â€” report coverage for all
+    # of the teams they appeared in during this month
+    affected_teams = [
+        {"team_id": t["id"], "coverage": t["coverage"]}
+        for t in model["teams"]
+        if any(p["id"] == member_id for p in t["people"])
+    ]
 
     cells = []
     for d in dates:
@@ -500,9 +574,8 @@ def set_status():
     return jsonify({
         "ok": True,
         "member_id": member_id,
-        "team_id": team_id,
         "cells": cells,
-        "coverage": team["coverage"] if team else [],
+        "teams": affected_teams,
         "my_stats": model["my_stats"],
     })
 
@@ -544,12 +617,16 @@ def delete_team():
 @admin_required
 def add_member():
     name = (request.form.get("name") or "").strip()
-    team_id = request.form.get("team_id", type=int)
+    team_ids = request.form.getlist("team_ids", type=int)
     allowance = request.form.get("allowance", type=int) or 200
     if name:
         conn = db()
-        conn.execute("INSERT INTO members(name, team_id, allowance) VALUES (?,?,?)",
-                     (name, team_id, allowance))
+        cur = conn.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
+        member_id = cur.lastrowid
+        conn.executemany(
+            "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+            [(member_id, team_id) for team_id in set(team_ids)],
+        )
         conn.commit(); conn.close()
     return redirect(request.referrer or url_for("index"))
 
@@ -564,17 +641,138 @@ def delete_member():
     return redirect(request.referrer or url_for("index"))
 
 
-@app.route("/member/team", methods=["POST"])
+def _norm_date(value):
+    """Validate/normalize a YYYY-MM-DD string; anything else becomes None."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value).isoformat()
+    except (ValueError, TypeError):
+        return None
+
+
+@app.route("/member/teams/batch", methods=["POST"])
 @admin_required
-def update_member_team():
+def update_member_teams_batch():
+    """Apply a batch of team-membership edits made in the "Manage teams &
+    people" panel. Body: JSON {"add": [...], "remove": [...], "update": [...]},
+    each item {"member_id", "team_id"} plus "start_date"/"end_date" for add
+    and update. Only rows still relevant today or later are ever touched â€”
+    past history is never rewritten."""
+    data = request.get_json(force=True) or {}
+    today = date.today()
+    today_iso = today.isoformat()
+    yesterday_iso = (today - timedelta(days=1)).isoformat()
+
+    conn = db()
+    try:
+        for item in data.get("add", []):
+            conn.execute(
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,?)",
+                (item.get("member_id"), item.get("team_id"),
+                 _norm_date(item.get("start_date")), _norm_date(item.get("end_date"))),
+            )
+        for item in data.get("update", []):
+            row = conn.execute(
+                "SELECT id FROM member_teams WHERE member_id=? AND team_id=? AND "
+                "(end_date IS NULL OR end_date>=?) ORDER BY id DESC LIMIT 1",
+                (item.get("member_id"), item.get("team_id"), today_iso),
+            ).fetchone()
+            if row:
+                conn.execute(
+                    "UPDATE member_teams SET start_date=?, end_date=? WHERE id=?",
+                    (_norm_date(item.get("start_date")), _norm_date(item.get("end_date")), row["id"]),
+                )
+        for item in data.get("remove", []):
+            row = conn.execute(
+                "SELECT id, start_date FROM member_teams WHERE member_id=? AND team_id=? AND "
+                "(end_date IS NULL OR end_date>=?) ORDER BY id DESC LIMIT 1",
+                (item.get("member_id"), item.get("team_id"), today_iso),
+            ).fetchone()
+            if not row:
+                continue
+            if row["start_date"] and row["start_date"] >= today_iso:
+                # not started yet â€” cancel outright
+                conn.execute("DELETE FROM member_teams WHERE id=?", (row["id"],))
+            else:
+                # active â€” ends as of today
+                conn.execute("UPDATE member_teams SET end_date=? WHERE id=?", (yesterday_iso, row["id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify(ok=True)
+
+
+@app.route("/member/team/add", methods=["POST"])
+@admin_required
+def member_team_add():
     member_id = request.form.get("member_id", type=int)
     team_id = request.form.get("team_id", type=int)
-    conn = db()
-    conn.execute("UPDATE members SET team_id=? WHERE id=?", (team_id, member_id))
-    conn.commit(); conn.close()
+    if member_id and team_id:
+        conn = db()
+        try:
+            conn.execute(
+                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+                (member_id, team_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/member/team/remove", methods=["POST"])
+@admin_required
+def member_team_remove():
+    member_id = request.form.get("member_id", type=int)
+    team_id = request.form.get("team_id", type=int)
+    today_iso = date.today().isoformat()
+    yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
+    if member_id and team_id:
+        conn = db()
+        try:
+            row = conn.execute(
+                "SELECT id, start_date FROM member_teams WHERE member_id=? AND team_id=? AND "
+                "(end_date IS NULL OR end_date>=?) ORDER BY id DESC LIMIT 1",
+                (member_id, team_id, today_iso),
+            ).fetchone()
+            if row:
+                if row["start_date"] and row["start_date"] >= today_iso:
+                    conn.execute("DELETE FROM member_teams WHERE id=?", (row["id"],))
+                else:
+                    conn.execute("UPDATE member_teams SET end_date=? WHERE id=?", (yesterday_iso, row["id"]))
+            conn.commit()
+        finally:
+            conn.close()
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/member/team/dates", methods=["POST"])
+@admin_required
+def member_team_dates():
+    member_id = request.form.get("member_id", type=int)
+    team_id = request.form.get("team_id", type=int)
+    start = _norm_date(request.form.get("start_date"))
+    end = _norm_date(request.form.get("end_date"))
+    today_iso = date.today().isoformat()
+    if member_id and team_id:
+        conn = db()
+        try:
+            row = conn.execute(
+                "SELECT id FROM member_teams WHERE member_id=? AND team_id=? AND "
+                "(end_date IS NULL OR end_date>=?) ORDER BY id DESC LIMIT 1",
+                (member_id, team_id, today_iso),
+            ).fetchone()
+            if row:
+                conn.execute("UPDATE member_teams SET start_date=?, end_date=? WHERE id=?",
+                             (start, end, row["id"]))
+            conn.commit()
+        finally:
+            conn.close()
     return redirect(request.referrer or url_for("index"))
 
 
 if __name__ == "__main__":
     init_db()
     app.run(host="127.0.0.1", port=8080, debug=True)
+

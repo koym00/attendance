@@ -155,9 +155,29 @@ body.manage-mode .manage{display:grid;}
 .people-group-head{font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase;
   letter-spacing:.6px; margin:0 0 8px;}
 .people-group .mrow{background:#fff; flex-direction:column; align-items:stretch; gap:7px;}
-.people-group .mrow>span:first-child{flex:none;}
-.mrow-actions{display:flex; align-items:center; gap:8px;}
-.mrow-actions .inlineform select{flex:1 1 auto;}
+.mrow-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px;}
+.mrow-top .danger{margin-top:1px;}
+.person-details{flex:1 1 auto; min-width:0;}
+.person-details summary{cursor:pointer; list-style:none; display:flex; flex-wrap:wrap; align-items:baseline; gap:6px;}
+.person-details summary::-webkit-details-marker{display:none;}
+.person-details summary::after{content:"▾"; font-size:8px; color:var(--sub); margin-left:auto; flex:0 0 auto;}
+.person-details[open] summary::after{content:"▴";}
+.person-details summary .pname{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.team-pending{font-size:10px; color:#9A7B00; background:rgba(255,213,0,.35); font-weight:600;
+  padding:1px 6px; border-radius:20px; white-space:nowrap; flex:0 0 auto;}
+.person-details .effective-fields{margin-top:9px;}
+.team-checks{display:flex; flex-wrap:wrap; gap:6px;}
+.team-check{display:flex; align-items:center; gap:4px; font-size:11px; font-weight:500; color:var(--sub);
+  background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:3px 7px 3px 5px; cursor:pointer;}
+.team-check input{margin:0; cursor:pointer;}
+.effective-fields{display:flex; flex-wrap:wrap; gap:12px;}
+.effective-field{display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--sub);}
+.effective-field input{font-size:11px; padding:3px 6px; border-radius:5px; border:1px solid var(--line);
+  width:auto; background:#fff;}
+.team-add-select{margin-top:9px; width:100%; font-size:11.5px; padding:5px 7px; border-radius:6px;
+  border:1px solid var(--line); background:#fff; color:var(--sub);}
+.apply-btn{width:auto !important; align-self:flex-start; margin:0 !important; padding:5px 14px !important;
+  font-size:11.5px !important;}
 .msection{margin-top:18px; padding-top:16px; border-top:1px dashed var(--line);}
 .msection h4{font-size:10.5px; font-weight:700; color:var(--sub); text-transform:uppercase;
   letter-spacing:.6px; margin:0 0 4px;}

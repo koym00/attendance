@@ -78,6 +78,47 @@
   </div>
 {% endmacro %}
 
+{% macro person_admin_row(m, team_id) %}
+  {% set pending = model.member_pending_teams.get(m.id, []) %}
+  {% set this_pending = pending | selectattr('team_id', 'equalto', team_id) | list %}
+  <div class="mrow">
+    <div class="mrow-top">
+      <details class="person-details" data-member="{{ m.id }}">
+        <summary>
+          <span class="pname">{{ m.name }}</span>
+          {% for p in this_pending %}
+            {% if p.start_date is defined %}
+              <span class="team-pending">from {{ p.start_date }}</span>
+            {% endif %}
+            {% if p.end_date is defined %}
+              <span class="team-pending team-ending">until {{ p.end_date }}</span>
+            {% endif %}
+          {% endfor %}
+        </summary>
+        <form method="post" action="/member/team/dates" class="effective-fields">
+          <input type="hidden" name="member_id" value="{{ m.id }}">
+          <input type="hidden" name="team_id" value="{{ team_id }}">
+          <label class="effective-field">From
+            <input type="date" name="start_date"
+                   value="{{ (this_pending | selectattr('start_date', 'defined') | map(attribute='start_date') | first) or '' }}">
+          </label>
+          <label class="effective-field">Until
+            <input type="date" name="end_date"
+                   value="{{ (this_pending | selectattr('end_date', 'defined') | map(attribute='end_date') | first) or '' }}">
+          </label>
+          <button type="submit" class="ghost small apply-btn">Apply</button>
+        </form>
+      </details>
+      <form method="post" action="/member/team/remove" class="inlineform"
+            data-confirm="Remove {{ m.name }} from this team?">
+        <input type="hidden" name="member_id" value="{{ m.id }}">
+        <input type="hidden" name="team_id" value="{{ team_id }}">
+        <button type="submit" class="danger small" title="Remove from team">✕</button>
+      </form>
+    </div>
+  </div>
+{% endmacro %}
+
 <div class="scroll">
   <div class="grid" style="--cols: {{ model.days|length }}">
     <!-- date header -->
@@ -190,66 +231,42 @@
   <div class="mcard">
     <h3>People</h3>
     <div class="people-groups">
-    {% for team in model.teams %}
-      {% set team_members = model.members | selectattr('team_id', 'equalto', team.id) | list %}
-      {% if team_members %}
+      {% for team in model.teams %}
+        {% set tm = model.current_team_members[team.id] %}
         <div class="people-group">
           <div class="people-group-head">{{ team.name }}</div>
           <div class="mlist">
-            {% for m in team_members %}
-              <div class="mrow">
-                <span>{{ m.name }}</span>
-                <div class="mrow-actions">
-                  <form method="post" action="/member/team" class="inlineform">
-                    <input type="hidden" name="member_id" value="{{ m.id }}">
-                    <select name="team_id" onchange="this.form.requestSubmit()">
-                      <option value="" {{ 'selected' if m.team_id is none }}>— Unassigned —</option>
-                      {% for t in model.teams %}
-                        <option value="{{ t.id }}" {{ 'selected' if t.id == m.team_id }}>{{ t.name }}</option>
-                      {% endfor %}
-                    </select>
-                  </form>
-                  <form method="post" action="/member/delete" class="inlineform"
-                        data-confirm="Remove {{ m.name }}?">
-                    <input type="hidden" name="member_id" value="{{ m.id }}">
-                    <button type="submit" class="danger small" title="Remove person">✕</button>
-                  </form>
-                </div>
-              </div>
+            {% for m in tm %}{{ person_admin_row(m, team.id) }}{% endfor %}
+            {% if not tm %}
+              <p class="empty-hint">No one assigned yet.</p>
+            {% endif %}
+          </div>
+          <form method="post" action="/member/team/add" class="team-add-form">
+            <input type="hidden" name="team_id" value="{{ team.id }}">
+            <select name="member_id" class="team-add-select" onchange="this.form.requestSubmit()">
+              <option value="">+ Add person…</option>
+              {% for m in model.current_unassigned_members %}
+                <option value="{{ m.id }}">{{ m.name }}</option>
+              {% endfor %}
+              {% for other_team in model.teams if other_team.id != team.id %}
+                {% for m in model.current_team_members[other_team.id] %}
+                  <option value="{{ m.id }}">{{ m.name }} (from {{ other_team.name }})</option>
+                {% endfor %}
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+      {% endfor %}
+      {% if model.current_unassigned_members %}
+        <div class="people-group">
+          <div class="people-group-head">Unassigned</div>
+          <div class="mlist">
+            {% for m in model.current_unassigned_members %}
+              <div class="mrow"><div class="mrow-top"><span class="pname">{{ m.name }}</span></div></div>
             {% endfor %}
           </div>
         </div>
       {% endif %}
-    {% endfor %}
-    {% set unassigned_people = model.members | selectattr('team_id', 'none') | list %}
-    {% if unassigned_people %}
-      <div class="people-group">
-        <div class="people-group-head">Unassigned</div>
-        <div class="mlist">
-          {% for m in unassigned_people %}
-            <div class="mrow">
-              <span>{{ m.name }}</span>
-              <div class="mrow-actions">
-                <form method="post" action="/member/team" class="inlineform">
-                  <input type="hidden" name="member_id" value="{{ m.id }}">
-                  <select name="team_id" onchange="this.form.requestSubmit()">
-                    <option value="" selected>— Unassigned —</option>
-                    {% for t in model.teams %}
-                      <option value="{{ t.id }}">{{ t.name }}</option>
-                    {% endfor %}
-                  </select>
-                </form>
-                <form method="post" action="/member/delete" class="inlineform"
-                      data-confirm="Remove {{ m.name }}?">
-                  <input type="hidden" name="member_id" value="{{ m.id }}">
-                  <button type="submit" class="danger small" title="Remove person">✕</button>
-                </form>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
     </div>
     {% if not model.members %}
       <p class="empty-hint">No people yet — add one below.</p>
@@ -259,11 +276,6 @@
       <form method="post" action="/member">
         <label>Name</label>
         <input name="name" placeholder="Full name" required>
-        <label>Team</label>
-        <select name="team_id">
-          <option value="">— Unassigned —</option>
-          {% for team in model.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
-        </select>
         <label>Vacation allowance (hours)</label>
         <input name="allowance" type="number" value="200">
         <button type="submit">Add person</button>
