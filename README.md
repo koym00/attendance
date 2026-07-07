@@ -1,12 +1,12 @@
 # Team Attendance Planner (Flask)
 
 Department coverage planner. At a glance: does every team have enough people
-working each day? Each person sets their own daily status. Includes Czech
-public holidays (fixed + movable Easter dates, computed for any year).
+working each day? Each person sets their own daily status. Admin can manage
+teams, people, and duty schedules. Includes Czech public holidays.
 
-## Run it in VS Code
+## Run
 
-1. Open this folder in VS Code:  **File → Open Folder…**  → select `attendance`.
+1. Open this folder in VS Code: **File → Open Folder…** → select `attendance`.
 2. Open a terminal (**Terminal → New Terminal**) and run:
 
    **Windows (PowerShell)**
@@ -25,38 +25,63 @@ public holidays (fixed + movable Easter dates, computed for any year).
    python app.py
    ```
 
-3. Open http://127.0.0.1:8080
+3. Open **http://127.0.0.1:8080**
 
 On first run a local SQLite database `attendance.db` is created and seeded with
-demo teams/people so the coverage colours are visible. Delete that file to start
-empty.
+demo data. Delete that file to start fresh.
 
 ## Project layout
 ```
 attendance/
-  app.py              # Flask routes, SQLite store, CZ holidays, coverage logic
+  app.py                 # Flask routes, SQLite, CZ holidays, coverage & duty logic
   templates/
-    index.html        # the grid (Jinja)
+    index.html           # Calendar grid + Manage panel (Jinja2)
+    duty.html            # Duty Schedule page
   static/
     style.css
-    app.js            # click-a-cell status picker + live coverage repaint
+    app.js               # Status picker, bulk selection, manage panel AJAX
   requirements.txt
 ```
 
-## How coverage works
-- "Working" = In office, Home office, Business trip.
-- Vacation / Sick / Flexi / Free do **not** count as working.
-- A normal weekday with nothing set defaults to **In office**.
-- Weekends and CZ public holidays carry no minimum requirement.
-- The coverage row turns **red (LOW)** when a team has fewer working people
-  than its minimum, amber when exactly on the minimum, green when above.
+## Features
+
+### Calendar
+- Monthly grid — one column per day, one row per person
+- **Status picker**: click a cell to set a status; drag across multiple cells for bulk edit
+- Statuses: `WRK` (work), `VAC` (vacation), `HVA` (half-day vacation), `FLX` (flexi), `RST` (rest day), `PLE` (paid leave), `FIC` (sick), `UPL` (unpaid leave), `LYR` (last year leave), `BDY` (birthday)
+- **Coverage row** per team: green / amber (LOW) / red based on headcount vs. minimum
+- Weekends and CZ public holidays are non-interactive
+
+### Allowance tracking
+- Each person has a yearly vacation allowance (stored in hours, displayed in days)
+- `VAC` = 1 day, `HVA` = 0.5 day; allowance deducted automatically
+- Remaining allowance shown in the toolbar; goes red when low
+
+### Multi-team membership
+- A person can belong to multiple teams simultaneously
+- Memberships are date-ranged (`start_date` / `end_date`) — history is preserved
+- The calendar shows only the teams a person was actually in on each day
+
+### Admin panel
+- Login with admin credentials (set in `app.py`)
+- **Manage teams & people**: add/remove teams, add/remove people, assign to teams, set effective dates
+- Override any person's status for any day
+
+### Duty Schedule (`/duty`)
+- Per-team monthly duty calendar — shows who is on duty each working day
+- Supports **weekly** (5 working days) and **biweekly** (10 working days) cycles
+- **Auto-replacement**: if the scheduled person is absent, the system picks the
+  fairest available replacement (fewest replacements → fewest scheduled duties → lowest ID)
+- **Manual override**: admin can set any person for any day via dropdown
+- Replacement stats table for the year
+- Multiple schedules per team with history
+
+## Coverage logic
+- **Working** statuses: `WRK`, `FLX`
+- All other statuses (VAC, HVA, RST, PLE, FIC, UPL, LYR, BDY) = not working
+- A weekday with no status set defaults to working
+- Coverage row: **green** = above minimum, **LOW** = below minimum
 
 ## Czech public holidays
 Computed in `cz_holidays(year)` in `app.py`. Movable dates (Velký pátek,
-Velikonoční pondělí) use the Computus algorithm, so any year works.
-
-## Swapping SQLite for PostgreSQL
-You had pgAdmin/Postgres open. To move off SQLite, replace the `db()` helper and
-the few `sqlite3` calls with `psycopg`/SQLAlchemy. The SQL is standard; the only
-SQLite-specific bit is the `ON CONFLICT(member_id, day) DO UPDATE` upsert, which
-Postgres also supports with the same syntax.
+Velikonoční pondělí) use the Computus algorithm — works for any year.

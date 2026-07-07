@@ -8,6 +8,9 @@ body{
   font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   color:var(--ink); background:#fff; font-size:14px;
 }
+html:has(body.cal-page),body.cal-page{height:100%;}
+body.cal-page{display:flex; flex-direction:column; overflow:hidden;}
+#calendarView{flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden;}
 a{text-decoration:none; color:inherit;}
 
 .brandbar{height:3px; background:var(--yellow);}
@@ -49,7 +52,8 @@ select,input{font-family:inherit;}
 .ghost:hover{color:var(--ink);}
 
 /* grid */
-.scroll{overflow-x:auto;}
+.toolbar{flex-shrink:0;}
+.scroll{overflow-x:auto; overflow-y:auto; flex:1; min-height:0;}
 .scroll::-webkit-scrollbar{height:10px;}
 .scroll::-webkit-scrollbar-thumb{background:#cbd2da; border-radius:8px;}
 .grid{width:100%; min-width:calc(var(--name-w) + var(--cols)*var(--day-w) + 4px);}
@@ -122,13 +126,13 @@ select,input{font-family:inherit;}
 .dot{width:9px; height:9px; border-radius:3px;}
 
 /* manage */
-body.manage-mode #calendarView{display:none;}
-body.manage-mode .nav{display:none;}
+body.cal-page.manage-mode #calendarView{display:none;}
+body.cal-page.manage-mode .nav{display:none;}
 .manage{display:none; grid-template-columns:minmax(280px,1fr) minmax(420px,2.2fr); gap:24px;
-  padding:22px; background:var(--panel); border-top:1px solid var(--line); align-items:start;}
-body.manage-mode .manage{display:grid;}
+  padding:22px 22px 36px; background:var(--panel); border-top:1px solid var(--line); align-items:start;}
+body.cal-page.manage-mode .manage{display:grid; flex:1; min-height:0; overflow-y:auto;}
 @media (max-width:860px){
-  body.manage-mode .manage{grid-template-columns:1fr;}
+  body.cal-page.manage-mode .manage{grid-template-columns:1fr;}
 }
 .manage-head{grid-column:1/-1; display:flex; align-items:center; justify-content:space-between;
   margin-bottom:4px;}
@@ -196,6 +200,7 @@ body.manage-mode .manage{display:grid;}
   background:#fff !important; color:#DC2626 !important; border:1px solid var(--line) !important; border-radius:6px;}
 .danger:hover{background:rgba(220,38,38,.08) !important; border-color:#DC2626 !important;}
 .danger.small{padding:4px 8px !important; line-height:1;}
+button.confirming{background:rgba(220,38,38,.15) !important; border-color:#DC2626 !important; color:#DC2626 !important; min-width:52px;}
 
 /* admin modal */
 .modal-backdrop{position:fixed; inset:0; z-index:60; background:rgba(20,26,34,.45);

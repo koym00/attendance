@@ -258,7 +258,23 @@ function wireManageForms() {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const confirmMsg = form.dataset.confirm;
-      if (confirmMsg && !confirm(confirmMsg)) return;
+      if (confirmMsg) {
+        const btn = form.querySelector("button[type=submit]");
+        if (!btn) return;
+        if (!btn.dataset.confirming) {
+          btn.dataset.confirming = "1";
+          const orig = btn.textContent;
+          btn.textContent = "Sure?";
+          btn.classList.add("confirming");
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove("confirming");
+            delete btn.dataset.confirming;
+          }, 2500);
+          return;
+        }
+        delete btn.dataset.confirming;
+      }
       const fd = new FormData(form);
       try {
         const res = await fetch(form.action, { method: "POST", body: fd });
