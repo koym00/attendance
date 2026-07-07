@@ -481,10 +481,7 @@ def build_model(year, month, me_id):
 
     for mid, team_id, start, end in memberships:
         if not (end and end < today_iso):   # still relevant (active or future)
-            if start:
-                # show "from [date]" badge for any membership with an explicit
-                # start date — covers today (just added), future (planned) and
-                # past explicit starts (historical record of when they joined)
+            if start and start >= today_iso:
                 member_pending_teams.setdefault(mid, []).append({
                     "team_id": team_id,
                     "team_name": team_name_by_id.get(team_id, "?"),
