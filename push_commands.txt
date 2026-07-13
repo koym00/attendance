@@ -1,6 +1,4 @@
-git fetch bitbucket master
-git checkout bitbucket/master -- .
-# Teraz manualne prekopiruj svoje subory do spravnych priecinkov, potom:
 git add src/main/routes.py src/main/templates/index.html src/main/templates/duty.html src/main/templates/allowances.html src/main/static/app.js src/main/static/styles/style.css
 git commit -m "Update app files"
+git pull bitbucket master --allow-unrelated-histories
 git push bitbucket HEAD:master
