@@ -1,4 +1,5 @@
 import os
+from os import getenv
 import secrets
 import sqlite3
 from datetime import date, timedelta
@@ -9,7 +10,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 
 bp_main = Blueprint('main', __name__, template_folder='templates', static_folder='static')
 
-BASE_DIR = os.getenv("DATA_DIR", "/tmp")
+BASE_DIR = getenv("DATA_DIR", "/tmp")
 DB_PATH = os.path.join(BASE_DIR, "attendance.db")
 
 ADMIN_USERNAME = "admin"
