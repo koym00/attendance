@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Attendance · {{ model.month_name }} {{ model.year }}</title>
   <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
-  <script>window.APP_BASE = "{{ request.script_root }}";</script>
+  <script>window.APP_BASE = "{{ url_for('main.admin_login') }}".replace("/admin/login", "");</script>
 </head>
 <body class="cal-page">
 <div class="brandbar"></div>
