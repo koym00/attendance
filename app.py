@@ -177,6 +177,13 @@ def init_db():
             date        TEXT NOT NULL,
             year        INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS member_allowances (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+            year        INTEGER NOT NULL,
+            allowance   INTEGER NOT NULL,
+            UNIQUE(member_id, year)
+        );
         """
     )
     conn.commit()
@@ -302,6 +309,20 @@ def effective_status(stored, weekend, holiday):
     if weekend or holiday:
         return None
     return "wrk"
+
+
+def get_allowance(conn, member_id, year) -> int:
+    """Return the vacation allowance (in hours) for member_id in year.
+    Uses a year-specific override from member_allowances if one exists,
+    otherwise falls back to the default stored in members.allowance."""
+    row = conn.execute(
+        "SELECT allowance FROM member_allowances WHERE member_id=? AND year=?",
+        (member_id, year),
+    ).fetchone()
+    if row:
+        return row["allowance"]
+    row = conn.execute("SELECT allowance FROM members WHERE id=?", (member_id,)).fetchone()
+    return row["allowance"] if row else 200
 
 
 def vacation_days_used(conn, member_id, year, exclude_dates=None):
@@ -494,18 +515,26 @@ def build_model(year, month, me_id):
                     "end_date": end,
                 })
 
+    # effective allowance per member for the viewed year (used in admin panel)
+    conn_all = db()
+    member_allowances_year = {
+        m["id"]: get_allowance(conn_all, m["id"], year) for m in members
+    }
+    conn_all.close()
+
     # personal vacation stats for "me"
     me = next((m for m in members if m["id"] == me_id), None)
     used_days = 0
     if me:
         conn = db()
         used_days = round(vacation_days_used(conn, me_id, year), 1)
+        me_allowance = member_allowances_year[me_id]
         conn.close()
     my_stats = None
     if me:
-        rem_h = me["allowance"] - used_days * 8
+        rem_h = me_allowance - used_days * 8
         my_stats = {
-            "allowance": me["allowance"],
+            "allowance": me_allowance,
             "used_days": used_days,
             "rem_days": round(rem_h / 8, 1),
         }
@@ -518,6 +547,7 @@ def build_model(year, month, me_id):
         "current_team_members": current_team_members,
         "current_unassigned_members": current_unassigned_members,
         "member_pending_teams": member_pending_teams,
+        "member_allowances_year": member_allowances_year,
     }
 
 
@@ -574,16 +604,16 @@ def vacation_allowance_block(conn, member_id, dates, new_status):
     None if OK. Allowance resets every calendar year."""
     if new_status not in VAC_WEIGHT:
         return None
-    member = conn.execute("SELECT name, allowance FROM members WHERE id=?", (member_id,)).fetchone()
+    member = conn.execute("SELECT name FROM members WHERE id=?", (member_id,)).fetchone()
     if not member:
         return None
-    allowed_days = member["allowance"] / 8
 
     by_year = {}
     for d in dates:
         by_year.setdefault(d[:4], []).append(d)
 
     for year, year_dates in by_year.items():
+        allowed_days = get_allowance(conn, member_id, int(year)) / 8
         existing_used = vacation_days_used(conn, member_id, year, exclude_dates=set(year_dates))
         used_after = round(existing_used + VAC_WEIGHT[new_status] * len(year_dates), 1)
         if used_after > allowed_days:
@@ -749,6 +779,24 @@ def create_team():
         conn = db()
         conn.execute("INSERT INTO teams(name, min_working) VALUES (?,?)", (name, min_w))
         conn.commit(); conn.close()
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/member/allowance", methods=["POST"])
+@admin_required
+def update_member_allowance():
+    member_id = request.form.get("member_id", type=int)
+    year = request.form.get("year", type=int)
+    allowance = request.form.get("allowance", type=int)
+    if not member_id or not year or allowance is None:
+        return redirect(request.referrer or url_for("index"))
+    conn = db()
+    conn.execute(
+        "INSERT INTO member_allowances(member_id, year, allowance) VALUES (?,?,?) "
+        "ON CONFLICT(member_id, year) DO UPDATE SET allowance=excluded.allowance",
+        (member_id, year, allowance),
+    )
+    conn.commit(); conn.close()
     return redirect(request.referrer or url_for("index"))
 
 
@@ -1152,6 +1200,27 @@ def get_monthly_duty(conn, team_id, year, month):
                        "is_replacement": True, "is_manual": False, "no_coverage": False})
 
     return result
+
+
+@app.route("/allowances")
+@admin_required
+def allowances_page():
+    year = request.args.get("year", default=date.today().year, type=int)
+    conn = db()
+    members = [dict(r) for r in conn.execute("SELECT * FROM members ORDER BY name").fetchall()]
+    effective_allowances = {m["id"]: get_allowance(conn, m["id"], year) for m in members}
+    used_days = {
+        m["id"]: round(vacation_days_used(conn, m["id"], year), 1)
+        for m in members
+    }
+    conn.close()
+    return render_template(
+        "allowances.html",
+        year=year,
+        members=members,
+        effective_allowances=effective_allowances,
+        used_days=used_days,
+    )
 
 
 @app.route("/duty")

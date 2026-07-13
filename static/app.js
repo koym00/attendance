@@ -296,6 +296,7 @@ function wireManageForms() {
       }
     });
   });
+  wireAllowanceBtns();
 }
 
 wireManageForms();

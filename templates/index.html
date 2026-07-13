@@ -193,7 +193,10 @@
 <div id="manage" class="manage">
   <div class="manage-head">
     <h2>Manage teams &amp; people</h2>
-    <button type="button" class="primary" id="manageSaveBtn">Save &amp; back to calendar</button>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('allowances_page', year=model.year) }}" class="ghost">Vacation allowances</a>
+      <button type="button" class="primary" id="manageSaveBtn">Save &amp; back to calendar</button>
+    </div>
   </div>
   <div class="mcard">
     <h3>Teams</h3>
