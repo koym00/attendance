@@ -6,9 +6,19 @@ from datetime import date, timedelta
 from calendar import monthrange
 from functools import wraps
 
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, session, abort, flash, get_flashed_messages
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, session, abort, flash, get_flashed_messages, send_from_directory
 
 bp_main = Blueprint('main', __name__, template_folder='templates', static_folder='static')
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+
+@bp_main.route('/style.css')
+def serve_css():
+    return send_from_directory(os.path.join(STATIC_DIR, 'styles'), 'style.css', mimetype='text/css')
+
+@bp_main.route('/app.js')
+def serve_js():
+    return send_from_directory(STATIC_DIR, 'app.js', mimetype='application/javascript')
 
 BASE_DIR = getenv("DATA_DIR", "/tmp/attendance_data")
 os.makedirs(BASE_DIR, exist_ok=True)
