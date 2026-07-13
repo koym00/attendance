@@ -52,7 +52,7 @@
     <span class="stat ok"><b id="statRemaining">{{ model.my_stats.rem_days }} d</b><i>Remaining {{ model.year }}</i></span>
     {% endif %}
   </form>
-  <a class="ghost" href="{{ url_for('duty_page') }}">Duty schedule</a>
+  <a class="ghost" href="{{ url_for('main.duty_page') }}">Duty schedule</a>
   {% if is_admin %}
   <button class="ghost" id="manageOpenBtn">Manage teams &amp; people</button>
   {% endif %}
@@ -194,7 +194,7 @@
   <div class="manage-head">
     <h2>Manage teams &amp; people</h2>
     <div style="display:flex; gap:8px;">
-      <a href="{{ url_for('allowances_page', year=model.year) }}" class="ghost">Vacation allowances</a>
+      <a href="{{ url_for('main.allowances_page', year=model.year) }}" class="ghost">Vacation allowances</a>
       <button type="button" class="primary" id="manageSaveBtn">Save &amp; back to calendar</button>
     </div>
   </div>

@@ -88,12 +88,12 @@
     <div class="nav">
       <div class="month-label">{{ month_name }} {{ year }}</div>
       <div class="nav-btns">
-        <a class="navbtn" href="{{ url_for('duty_page', year=prev.y, month=prev.m, team=team_id) }}">‹</a>
-        <a class="navbtn wide" href="{{ url_for('duty_page', team=team_id) }}">Today</a>
-        <a class="navbtn" href="{{ url_for('duty_page', year=next.y, month=next.m, team=team_id) }}">›</a>
+        <a class="navbtn" href="{{ url_for('main.duty_page', year=prev.y, month=prev.m, team=team_id) }}">‹</a>
+        <a class="navbtn wide" href="{{ url_for('main.duty_page', team=team_id) }}">Today</a>
+        <a class="navbtn" href="{{ url_for('main.duty_page', year=next.y, month=next.m, team=team_id) }}">›</a>
       </div>
     </div>
-    <a class="navbtn wide" href="{{ url_for('index') }}" style="margin-left:8px;">← Calendar</a>
+    <a class="navbtn wide" href="{{ url_for('main.index') }}" style="margin-left:8px;">← Calendar</a>
   </div>
 </header>
 
@@ -102,7 +102,7 @@
 <div class="team-tabs">
   {% for t in teams %}
     <a class="team-tab {{ 'active' if t.id == team_id }}"
-       href="{{ url_for('duty_page', year=year, month=month, team=t.id) }}">{{ t.name }}</a>
+       href="{{ url_for('main.duty_page', year=year, month=month, team=t.id) }}">{{ t.name }}</a>
   {% endfor %}
 </div>
 {% endif %}

@@ -10,7 +10,8 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 
 bp_main = Blueprint('main', __name__, template_folder='templates', static_folder='static')
 
-BASE_DIR = getenv("DATA_DIR", "/tmp")
+BASE_DIR = getenv("DATA_DIR", "/tmp/attendance_data")
+os.makedirs(BASE_DIR, exist_ok=True)
 DB_PATH = os.path.join(BASE_DIR, "attendance.db")
 
 ADMIN_USERNAME = "admin"
