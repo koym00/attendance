@@ -1,0 +1,3 @@
+git add src/main/static/app.js src/main/static/styles/style.css src/main/templates/duty.html src/main/templates/index.html src/main/templates/allowances.html src/main/routes.py
+git commit -m "Add templates and static files"
+git push
