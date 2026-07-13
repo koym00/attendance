@@ -7,7 +7,7 @@ from functools import wraps
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, session, abort, flash, get_flashed_messages
 
-bp_main = Blueprint('main', __name__)
+bp_main = Blueprint('main', __name__, template_folder='templates', static_folder='static')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "attendance.db")
@@ -1398,3 +1398,6 @@ def duty_set_replacement():
     finally:
         conn.close()
     return redirect(url_for("main.duty_page", team=team_id, year=year, month=month))
+
+
+init_db()
