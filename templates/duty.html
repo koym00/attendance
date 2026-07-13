@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Duty · {{ team.name if team else '' }} · {{ month_name }} {{ year }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
     .duty-layout{display:grid; grid-template-columns:1fr 340px; gap:24px; padding:20px 22px 60px; align-items:start;}
     @media (max-width:900px){.duty-layout{grid-template-columns:1fr;}}
