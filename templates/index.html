@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Attendance · {{ model.month_name }} {{ model.year }}</title>
   <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
+  <script>window.APP_BASE = "{{ request.script_root }}";</script>
 </head>
 <body class="cal-page">
 <div class="brandbar"></div>
@@ -96,7 +97,7 @@
             {% endif %}
           {% endfor %}
         </summary>
-        <form method="post" action="/member/team/dates" class="effective-fields">
+        <form method="post" action="{{ url_for('main.member_team_dates') }}" class="effective-fields">
           <input type="hidden" name="member_id" value="{{ m.id }}">
           <input type="hidden" name="team_id" value="{{ team_id }}">
           <label class="effective-field">From
@@ -110,7 +111,7 @@
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
       </details>
-      <form method="post" action="/member/team/remove" class="inlineform"
+      <form method="post" action="{{ url_for('main.member_team_remove') }}" class="inlineform"
             data-confirm="Remove {{ m.name }} from this team?">
         <input type="hidden" name="member_id" value="{{ m.id }}">
         <input type="hidden" name="team_id" value="{{ team_id }}">
@@ -204,13 +205,13 @@
       {% for team in model.teams %}
         <div class="mrow">
           <span>{{ team.name }}<i class="mcount">{{ team.count }} {{ 'person' if team.count == 1 else 'people' }}</i></span>
-          <form method="post" action="/team/min" class="inlineform">
+          <form method="post" action="{{ url_for('main.update_min') }}" class="inlineform">
             <input type="hidden" name="team_id" value="{{ team.id }}">
             <span class="minedit">min
               <input name="min" type="number" min="0" value="{{ team.min }}" onchange="this.form.requestSubmit()">
             </span>
           </form>
-          <form method="post" action="/team/delete" class="inlineform"
+          <form method="post" action="{{ url_for('main.delete_team') }}" class="inlineform"
                 data-confirm="Delete {{ team.name }} and all its members?">
             <input type="hidden" name="team_id" value="{{ team.id }}">
             <button type="submit" class="danger small" title="Delete team">✕</button>
@@ -222,7 +223,7 @@
     </div>
     <div class="msection">
       <h4>Add team</h4>
-      <form method="post" action="/team">
+      <form method="post" action="{{ url_for('main.create_team') }}">
         <label>Team name</label>
         <input name="name" placeholder="e.g. Settlements" required>
         <label>Minimum people working</label>
@@ -245,7 +246,7 @@
               <p class="empty-hint">No one assigned yet.</p>
             {% endif %}
           </div>
-          <form method="post" action="/member/team/add" class="team-add-form">
+          <form method="post" action="{{ url_for('main.member_team_add') }}" class="team-add-form">
             <input type="hidden" name="team_id" value="{{ team.id }}">
             <select name="member_id" class="team-add-select" onchange="this.form.requestSubmit()">
               <option value="">+ Add person…</option>
@@ -269,7 +270,7 @@
               <div class="mrow">
                 <div class="mrow-top">
                   <span class="pname">{{ m.name }}</span>
-                  <form method="post" action="/member/delete" class="inlineform"
+                  <form method="post" action="{{ url_for('main.delete_member') }}" class="inlineform"
                         data-confirm="Remove {{ m.name }}?">
                     <input type="hidden" name="member_id" value="{{ m.id }}">
                     <button type="submit" class="danger small" title="Remove person">✕</button>
@@ -293,7 +294,7 @@
     {% endif %}
     <div class="msection">
       <h4>Add person</h4>
-      <form method="post" action="/member" id="addPersonForm">
+      <form method="post" action="{{ url_for('main.add_member') }}" id="addPersonForm">
         <label>Name</label>
         <input name="name" placeholder="Full name" required>
         <label>Vacation allowance</label>

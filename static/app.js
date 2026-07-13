@@ -1,3 +1,4 @@
+const BASE = window.APP_BASE || "";
 const COV_CLASS = { off: "cov-off", ok: "cov-ok", tight: "cov-tight", low: "cov-low" };
 const pop = document.getElementById("pop");
 const toast = document.getElementById("toast");
@@ -71,7 +72,7 @@ async function applyStatus(status) {
   const { member, dates } = active;
   closePicker();
   try {
-    const res = await fetch("/api/status", {
+    const res = await fetch(BASE + "/api/status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ member_id: member, dates, status: status || null, me_id: window.ME_ID }),
@@ -208,7 +209,7 @@ if (adminForm) {
     e.preventDefault();
     const fd = new FormData(adminForm);
     try {
-      const res = await fetch("/admin/login", {
+      const res = await fetch(BASE + "/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: fd.get("username"), password: fd.get("password") }),
@@ -227,7 +228,7 @@ if (adminForm) {
 
 if (adminLogoutBtn) {
   adminLogoutBtn.addEventListener("click", async () => {
-    await fetch("/admin/logout", { method: "POST" });
+    await fetch(BASE + "/admin/logout", { method: "POST" });
     window.location.reload();
   });
 }
