@@ -588,14 +588,6 @@ def index():
     )
 
 
-@bp_main.route("/debug/db")
-def debug_db():
-    return jsonify(
-        backend="postgresql" if _USE_PG else "sqlite",
-        host=getenv("DOCHAZKA_1_HOST", "not set"),
-    )
-
-
 @bp_main.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json(force=True) or {}
