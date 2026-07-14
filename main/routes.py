@@ -292,46 +292,6 @@ def init_db():
         conn.execute(_sql("UPDATE attendance SET status=? WHERE status=?"), (new, old))
     conn.commit()
 
-    if _count(conn.execute("SELECT COUNT(*) FROM teams").fetchone()) == 0:
-        ops = _execute_id(conn, "INSERT INTO teams(name, min_working) VALUES (?,?)", ("Operations", 2))
-        risk = _execute_id(conn, "INSERT INTO teams(name, min_working) VALUES (?,?)", ("Risk & Controls", 1))
-
-        people = [
-            ("Anna Horakova", ops, 200),
-            ("Marek Dvorak", ops, 200),
-            ("Petra Nova", ops, 200),
-            ("Jakub Cerny", risk, 200),
-            ("Lucia Vesela", risk, 240),
-        ]
-        ids = {}
-        for name, team, allow in people:
-            ids[name] = _execute_id(conn, "INSERT INTO members(name, allowance) VALUES (?,?)", (name, allow))
-            conn.execute(
-                _sql("INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)"),
-                (ids[name], team),
-            )
-
-        seed = [
-            ("Petra Nova", "2026-06-01", "wrk"), ("Petra Nova", "2026-06-08", "wrk"),
-            ("Petra Nova", "2026-06-15", "wrk"), ("Petra Nova", "2026-06-22", "wrk"),
-            ("Anna Horakova", "2026-06-03", "vac"), ("Marek Dvorak", "2026-06-03", "wrk"),
-            ("Petra Nova", "2026-06-03", "wrk"),
-            ("Petra Nova", "2026-06-10", "vac"), ("Marek Dvorak", "2026-06-10", "upl"),
-            ("Anna Horakova", "2026-06-09", "wrk"), ("Anna Horakova", "2026-06-10", "wrk"),
-            ("Marek Dvorak", "2026-06-16", "vac"), ("Marek Dvorak", "2026-06-17", "vac"),
-            ("Marek Dvorak", "2026-06-18", "vac"),
-            ("Jakub Cerny", "2026-06-17", "vac"), ("Lucia Vesela", "2026-06-17", "upl"),
-            ("Jakub Cerny", "2026-06-04", "wrk"), ("Jakub Cerny", "2026-06-05", "wrk"),
-            ("Lucia Vesela", "2026-06-11", "flx"), ("Petra Nova", "2026-06-25", "upl"),
-            ("Anna Horakova", "2026-06-29", "flx"),
-            ("Petra Nova", "2026-06-29", "vac"), ("Petra Nova", "2026-06-30", "vac"),
-        ]
-        for name, day, status in seed:
-            conn.execute(
-                _sql("INSERT INTO attendance(member_id, day, status) VALUES (?,?,?)"),
-                (ids[name], day, status),
-            )
-        conn.commit()
     conn.close()
 
 
