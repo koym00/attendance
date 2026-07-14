@@ -487,10 +487,8 @@ def build_model(year, month, me_id):
             "coverage": [{"iso": d["iso"], **cov[d["iso"]]} for d in days],
         })
 
-    unassigned_ids = {
-        m["id"] for m in members
-        if any(not teams_on(m["id"], day["iso"]) for day in days)
-    }
+    members_in_team_roster = {p["id"] for t_data in teams for p in t_data["people"]}
+    unassigned_ids = {m["id"] for m in members if m["id"] not in members_in_team_roster}
     unassigned = build_people([m for m in members if m["id"] in unassigned_ids])
 
     today_iso = date.today().isoformat()
