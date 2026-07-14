@@ -50,16 +50,15 @@ attendance/
         style.css
 ```
 
-## CodeNow deployment
+## Production deployment
 
-The app runs as a Flask Blueprint (`bp_main`) registered by CodeNow's `src/app.py`
-with `url_prefix="/attendance"`.
+The app runs as a Flask Blueprint (`bp_main`) that can be registered by any WSGI host
+with a custom `url_prefix`.
 
-**Database:** Connect a PostgreSQL managed service via CodeNow's Connected Services.
-The app automatically switches to PostgreSQL when the `DOCHAZKA_1_HOST` environment
-variable is set (injected by CodeNow). Without it, the app uses local SQLite.
+**Database:** The app automatically switches to PostgreSQL when the `DOCHAZKA_1_HOST`
+environment variable is set. Without it, the app uses local SQLite.
 
-Required environment variables (set automatically by CodeNow Connected Services):
+Required environment variables for PostgreSQL:
 ```
 DOCHAZKA_1_HOST
 DOCHAZKA_1_PORT
