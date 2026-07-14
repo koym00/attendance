@@ -29,7 +29,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "1234"
 
 # ── database backend ──────────────────────────────────────────────────────────
-_USE_PG = bool(getenv("DB_HOST"))
+_USE_PG = bool(getenv("DOCHAZKA_1_HOST"))
 _Q = "%s" if _USE_PG else "?"
 
 
@@ -77,11 +77,11 @@ if _USE_PG:
 
     def db():
         conn = psycopg2.connect(
-            host=getenv("DB_HOST"),
-            port=getenv("DB_PORT", "5432"),
-            dbname=getenv("DB_NAME"),
-            user=getenv("DB_USER"),
-            password=getenv("DB_PASSWORD"),
+            host=getenv("DOCHAZKA_1_HOST"),
+            port=getenv("DOCHAZKA_1_PORT", "5432"),
+            dbname=getenv("DOCHAZKA_1_DATABASE_NAME"),
+            user=getenv("DOCHAZKA_1_USERNAME"),
+            password=getenv("DOCHAZKA_1_PASSWORD"),
             cursor_factory=psycopg2.extras.RealDictCursor,
         )
         return _Conn(conn)
