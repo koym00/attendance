@@ -20,7 +20,9 @@ def serve_css():
 def serve_js():
     return send_from_directory(STATIC_DIR, 'app.js', mimetype='application/javascript')
 
-BASE_DIR = getenv("DATA_DIR", "/tmp/attendance_data")
+import sys as _sys
+_default_data = "/tmp/attendance_data" if _sys.platform != "win32" else os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+BASE_DIR = getenv("DATA_DIR", _default_data)
 os.makedirs(BASE_DIR, exist_ok=True)
 DB_PATH = os.path.join(BASE_DIR, "attendance.db")
 

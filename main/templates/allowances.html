@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vacation Allowances · {{ year }}</title>
+  <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
+  <script>window.APP_BASE = "{{ url_for('main.admin_login') }}".replace("/admin/login", "");</script>
+  <style>
+    .allow-layout{max-width:700px; margin:0 auto; padding:24px 22px 60px;}
+    .allow-table{width:100%; border-collapse:collapse; margin-top:18px;}
+    .allow-table th{font-size:10.5px; font-weight:700; color:var(--sub); text-transform:uppercase;
+      letter-spacing:.5px; padding:6px 12px; text-align:left; border-bottom:2px solid var(--line);}
+    .allow-table td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:middle;}
+    .allow-table tr:hover td{background:var(--panel);}
+    .aname{font-weight:600; font-size:13.5px;}
+    .adefault{font-size:12px; color:var(--sub);}
+    .aused{font-size:12px; color:var(--sub);}
+    .allow-input-wrap{display:flex; align-items:center; gap:6px;}
+    .allow-input-wrap input{width:70px; font-size:13px; padding:5px 8px; border-radius:6px;
+      border:1px solid var(--line); background:#fff; text-align:right;}
+    .allow-input-wrap input:focus{outline:none; border-color:var(--ink);}
+    .allow-input-wrap .unit{font-size:12px; color:var(--sub);}
+    .allow-input-wrap .days-eq{font-size:11px; color:var(--sub); white-space:nowrap;}
+    .year-nav{display:flex; align-items:center; gap:10px;}
+    .saved-badge{font-size:10px; font-weight:700; color:#15803D; background:#E6F5EA;
+      padding:2px 7px; border-radius:10px; opacity:0; transition:opacity .3s;}
+    .saved-badge.show{opacity:1;}
+  </style>
+</head>
+<body class="cal-page">
+<div class="brandbar"></div>
+<header class="topbar">
+  <div>
+    <div class="app-title">Vacation Allowances</div>
+    <div class="app-sub">Per-person yearly override — default used when no override set</div>
+  </div>
+  <div class="topbar-right">
+    <div class="year-nav">
+      <a class="navbtn" href="{{ url_for('main.allowances_page', year=year-1) }}">‹</a>
+      <span class="month-label">{{ year }}</span>
+      <a class="navbtn" href="{{ url_for('main.allowances_page', year=year+1) }}">›</a>
+    </div>
+    <a class="navbtn wide" href="{{ url_for('main.index') }}" style="margin-left:8px;">← Calendar</a>
+  </div>
+</header>
+
+<div class="allow-layout">
+  {% if not members %}
+    <p style="color:var(--sub); padding:40px 0; text-align:center;">No people yet.</p>
+  {% else %}
+  <table class="allow-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>{{ year }} allowance</th>
+        <th>Used {{ year }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td class="aname">{{ m.name }}</td>
+        <td>
+          <form method="post" action="{{ url_for('main.update_member_allowance') }}"
+                class="allow-input-wrap" id="form-{{ m.id }}">
+            <input type="hidden" name="member_id" value="{{ m.id }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="number" name="allowance" min="0" step="8"
+                   value="{{ effective_allowances[m.id] }}"
+                   onchange="submitAllowance(this)">
+            <span class="unit">h</span>
+            <span class="days-eq" id="eq-{{ m.id }}">
+              = {{ effective_allowances[m.id] // 8 }}d
+            </span>
+            <span class="saved-badge" id="badge-{{ m.id }}">saved</span>
+          </form>
+        </td>
+        <td class="aused">
+          {{ used_days[m.id] }}d
+          <span style="color:{% if used_days[m.id] > effective_allowances[m.id] / 8 %}#B91C1C{% else %}var(--sub){% endif %};">
+            / {{ effective_allowances[m.id] // 8 }}d
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<script>
+function submitAllowance(input) {
+  const form = input.closest("form");
+  const mid = form.querySelector('[name=member_id]').value;
+  const h = parseInt(input.value, 10) || 0;
+  document.getElementById("eq-" + mid).textContent = "= " + (h / 8) + "d";
+
+  const fd = new FormData(form);
+  fetch(form.action, { method: "POST", body: fd }).then(() => {
+    const badge = document.getElementById("badge-" + mid);
+    badge.classList.add("show");
+    setTimeout(() => badge.classList.remove("show"), 1500);
+  });
+}
+</script>
+</body>
+</html>
