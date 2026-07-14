@@ -1,7 +1,6 @@
 import os
 from os import getenv
 import secrets
-import sqlite3
 from datetime import date, timedelta
 from calendar import monthrange
 from functools import wraps
@@ -28,6 +27,72 @@ DB_PATH = os.path.join(BASE_DIR, "attendance.db")
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "1234"
+
+# ── database backend ──────────────────────────────────────────────────────────
+_USE_PG = bool(getenv("DB_HOST"))
+_Q = "%s" if _USE_PG else "?"
+
+
+def _sql(query):
+    return query.replace("?", "%s") if _USE_PG else query
+
+
+def _execute_id(conn, sql, params=()):
+    if _USE_PG:
+        return conn.execute(sql + " RETURNING id", params).fetchone()["id"]
+    return conn.execute(sql, params).lastrowid
+
+
+def _count(row):
+    if isinstance(row, dict):
+        return list(row.values())[0]
+    return row[0]
+
+
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
+
+    class _Conn:
+        def __init__(self, conn):
+            self._conn = conn
+            self._cur = conn.cursor()
+
+        def execute(self, sql, params=()):
+            self._cur.execute(sql.replace("?", "%s"), params)
+            return self._cur
+
+        def executemany(self, sql, params_list):
+            self._cur.executemany(sql.replace("?", "%s"), params_list)
+            return self._cur
+
+        def cursor(self):
+            return self._conn.cursor()
+
+        def commit(self):
+            self._conn.commit()
+
+        def close(self):
+            self._conn.close()
+
+    def db():
+        conn = psycopg2.connect(
+            host=getenv("DB_HOST"),
+            port=getenv("DB_PORT", "5432"),
+            dbname=getenv("DB_NAME"),
+            user=getenv("DB_USER"),
+            password=getenv("DB_PASSWORD"),
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+        return _Conn(conn)
+else:
+    import sqlite3
+
+    def db():
+        conn = sqlite3.connect(DB_PATH, timeout=15)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
 
 
 def admin_required(view):
@@ -106,137 +171,130 @@ def cz_holidays(year: int) -> dict[str, str]:
     return result
 
 
-def db():
-    conn = sqlite3.connect(DB_PATH, timeout=15)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
 def init_db():
     conn = db()
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS teams (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            name        TEXT NOT NULL,
-            min_working INTEGER NOT NULL DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS members (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            name      TEXT NOT NULL,
-            allowance INTEGER NOT NULL DEFAULT 200
-        );
-        CREATE TABLE IF NOT EXISTS member_teams (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-            team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            start_date  TEXT,
-            end_date    TEXT
-        );
-        CREATE TABLE IF NOT EXISTS attendance (
-            member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-            day       TEXT NOT NULL,
-            status    TEXT NOT NULL,
-            PRIMARY KEY (member_id, day)
-        );
-        CREATE TABLE IF NOT EXISTS duty_schedules (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            name        TEXT NOT NULL DEFAULT 'Rotation',
-            start_date  TEXT NOT NULL,
-            end_date    TEXT,
-            period_days INTEGER NOT NULL DEFAULT 7,
-            active      INTEGER NOT NULL DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS duty_slots (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            schedule_id INTEGER NOT NULL REFERENCES duty_schedules(id) ON DELETE CASCADE,
-            day_offset  INTEGER NOT NULL,
-            member_id   INTEGER REFERENCES members(id) ON DELETE SET NULL,
-            UNIQUE(schedule_id, day_offset)
-        );
-        CREATE TABLE IF NOT EXISTS duty_replacements (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            replacer_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-            replaced_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
-            date        TEXT NOT NULL,
-            year        INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS member_allowances (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-            year        INTEGER NOT NULL,
-            allowance   INTEGER NOT NULL,
-            UNIQUE(member_id, year)
-        );
-        """
-    )
-    conn.commit()
 
-    ds_cols = {c["name"] for c in conn.execute("PRAGMA table_info(duty_schedules)")}
-    if "end_date" not in ds_cols:
-        conn.execute("ALTER TABLE duty_schedules ADD COLUMN end_date TEXT")
-        conn.commit()
-
-    dr_cols = {c["name"] for c in conn.execute("PRAGMA table_info(duty_replacements)")}
-    if "manual" not in dr_cols:
-        conn.execute("ALTER TABLE duty_replacements ADD COLUMN manual INTEGER DEFAULT 0")
-        conn.commit()
-
-    idx_exists = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_duty_rep_team_date'"
-    ).fetchone()
-    if not idx_exists:
-        conn.execute("""
-            DELETE FROM duty_replacements WHERE id NOT IN (
-                SELECT MIN(id) FROM duty_replacements GROUP BY team_id, date
-            )
-        """)
-        conn.execute(
-            "CREATE UNIQUE INDEX uq_duty_rep_team_date ON duty_replacements(team_id, date)"
+    if not _USE_PG:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS teams (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                min_working INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS members (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                name      TEXT NOT NULL,
+                allowance INTEGER NOT NULL DEFAULT 200
+            );
+            CREATE TABLE IF NOT EXISTS member_teams (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                start_date  TEXT,
+                end_date    TEXT
+            );
+            CREATE TABLE IF NOT EXISTS attendance (
+                member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                day       TEXT NOT NULL,
+                status    TEXT NOT NULL,
+                PRIMARY KEY (member_id, day)
+            );
+            CREATE TABLE IF NOT EXISTS duty_schedules (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                name        TEXT NOT NULL DEFAULT 'Rotation',
+                start_date  TEXT NOT NULL,
+                end_date    TEXT,
+                period_days INTEGER NOT NULL DEFAULT 7,
+                active      INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS duty_slots (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                schedule_id INTEGER NOT NULL REFERENCES duty_schedules(id) ON DELETE CASCADE,
+                day_offset  INTEGER NOT NULL,
+                member_id   INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                UNIQUE(schedule_id, day_offset)
+            );
+            CREATE TABLE IF NOT EXISTS duty_replacements (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_id     INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                replacer_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                replaced_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                date        TEXT NOT NULL,
+                year        INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS member_allowances (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id   INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                year        INTEGER NOT NULL,
+                allowance   INTEGER NOT NULL,
+                UNIQUE(member_id, year)
+            );
+            """
         )
         conn.commit()
 
-    team_col = next((c for c in conn.execute("PRAGMA table_info(members)") if c["name"] == "team_id"), None)
-    if team_col:
-        rows = conn.execute("SELECT id, team_id FROM members WHERE team_id IS NOT NULL").fetchall()
-        if rows:
-            conn.executemany(
-                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
-                [(r["id"], r["team_id"]) for r in rows],
+        ds_cols = {c["name"] for c in conn.execute("PRAGMA table_info(duty_schedules)")}
+        if "end_date" not in ds_cols:
+            conn.execute("ALTER TABLE duty_schedules ADD COLUMN end_date TEXT")
+            conn.commit()
+
+        dr_cols = {c["name"] for c in conn.execute("PRAGMA table_info(duty_replacements)")}
+        if "manual" not in dr_cols:
+            conn.execute("ALTER TABLE duty_replacements ADD COLUMN manual INTEGER DEFAULT 0")
+            conn.commit()
+
+        idx_exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_duty_rep_team_date'"
+        ).fetchone()
+        if not idx_exists:
+            conn.execute("""
+                DELETE FROM duty_replacements WHERE id NOT IN (
+                    SELECT MIN(id) FROM duty_replacements GROUP BY team_id, date
+                )
+            """)
+            conn.execute(
+                "CREATE UNIQUE INDEX uq_duty_rep_team_date ON duty_replacements(team_id, date)"
             )
-        conn.execute("PRAGMA foreign_keys = OFF")
-        try:
-            conn.execute("ALTER TABLE members DROP COLUMN team_id")
-        except sqlite3.OperationalError:
-            conn.executescript(
-                """
-                CREATE TABLE members_new (
-                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name      TEXT NOT NULL,
-                    allowance INTEGER NOT NULL DEFAULT 200
-                );
-                INSERT INTO members_new(id, name, allowance) SELECT id, name, allowance FROM members;
-                DROP TABLE members;
-                ALTER TABLE members_new RENAME TO members;
-                """
-            )
-        conn.commit()
+            conn.commit()
+
+        team_col = next((c for c in conn.execute("PRAGMA table_info(members)") if c["name"] == "team_id"), None)
+        if team_col:
+            rows = conn.execute("SELECT id, team_id FROM members WHERE team_id IS NOT NULL").fetchall()
+            if rows:
+                conn.executemany(
+                    "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+                    [(r["id"], r["team_id"]) for r in rows],
+                )
+            try:
+                conn.execute("ALTER TABLE members DROP COLUMN team_id")
+            except Exception:
+                conn.executescript(
+                    """
+                    CREATE TABLE members_new (
+                        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name      TEXT NOT NULL,
+                        allowance INTEGER NOT NULL DEFAULT 200
+                    );
+                    INSERT INTO members_new(id, name, allowance) SELECT id, name, allowance FROM members;
+                    DROP TABLE members;
+                    ALTER TABLE members_new RENAME TO members;
+                    """
+                )
+            conn.commit()
+
         conn.execute("PRAGMA foreign_keys = ON")
 
     old_to_new = {"ofc": "wrk", "wfh": "wrk", "trp": "wrk", "sck": "upl", "fre": "upl"}
     for old, new in old_to_new.items():
-        conn.execute("UPDATE attendance SET status=? WHERE status=?", (new, old))
+        conn.execute(_sql("UPDATE attendance SET status=? WHERE status=?"), (new, old))
     conn.commit()
 
-    if conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0] == 0:
-        cur = conn.cursor()
-        cur.execute("INSERT INTO teams(name, min_working) VALUES (?,?)", ("Operations", 2))
-        ops = cur.lastrowid
-        cur.execute("INSERT INTO teams(name, min_working) VALUES (?,?)", ("Risk & Controls", 1))
-        risk = cur.lastrowid
+    if _count(conn.execute("SELECT COUNT(*) FROM teams").fetchone()) == 0:
+        ops = _execute_id(conn, "INSERT INTO teams(name, min_working) VALUES (?,?)", ("Operations", 2))
+        risk = _execute_id(conn, "INSERT INTO teams(name, min_working) VALUES (?,?)", ("Risk & Controls", 1))
 
         people = [
             ("Anna Horakova", ops, 200),
@@ -247,10 +305,9 @@ def init_db():
         ]
         ids = {}
         for name, team, allow in people:
-            cur.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allow))
-            ids[name] = cur.lastrowid
-            cur.execute(
-                "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)",
+            ids[name] = _execute_id(conn, "INSERT INTO members(name, allowance) VALUES (?,?)", (name, allow))
+            conn.execute(
+                _sql("INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,NULL,NULL)"),
                 (ids[name], team),
             )
 
@@ -270,8 +327,10 @@ def init_db():
             ("Petra Nova", "2026-06-29", "vac"), ("Petra Nova", "2026-06-30", "vac"),
         ]
         for name, day, status in seed:
-            cur.execute("INSERT INTO attendance(member_id, day, status) VALUES (?,?,?)",
-                        (ids[name], day, status))
+            conn.execute(
+                _sql("INSERT INTO attendance(member_id, day, status) VALUES (?,?,?)"),
+                (ids[name], day, status),
+            )
         conn.commit()
     conn.close()
 
@@ -310,11 +369,11 @@ def birthday_block(conn, member_id, dates, new_status):
         return None
     for d in dates:
         year = d[:4]
-        already = conn.execute(
+        already = _count(conn.execute(
             "SELECT COUNT(*) FROM attendance WHERE member_id=? AND status='bdy' AND day LIKE ? AND day NOT IN (%s)"
             % ",".join("?" * len(dates)),
             (member_id, f"{year}-%", *dates),
-        ).fetchone()[0]
+        ).fetchone())
         if already >= 1:
             return {"year": year}
     return None
@@ -765,8 +824,7 @@ def add_member():
             conn.close()
             flash(f"A person named '{name}' already exists.")
         else:
-            cur = conn.execute("INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
-            member_id = cur.lastrowid
+            member_id = _execute_id(conn, "INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
             today_iso = date.today().isoformat()
             conn.executemany(
                 "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
@@ -1078,8 +1136,8 @@ def get_monthly_duty(conn, team_id, year, month):
 
         if d <= today:
             conn.execute(
-                "INSERT OR IGNORE INTO duty_replacements(team_id,replacer_id,replaced_id,date,year,manual) "
-                "VALUES (?,?,?,?,?,0)",
+                "INSERT INTO duty_replacements(team_id,replacer_id,replaced_id,date,year,manual) "
+                "VALUES (?,?,?,?,?,0) ON CONFLICT(team_id,date) DO NOTHING",
                 (team_id, replacer_id, scheduled_id, iso, year),
             )
             conn.commit()
@@ -1367,9 +1425,9 @@ def duty_delete_schedule():
                 (team_id, row["start_date"], period_end),
             )
             conn.execute("DELETE FROM duty_schedules WHERE id=?", (schedule_id,))
-            remaining = conn.execute(
+            remaining = _count(conn.execute(
                 "SELECT COUNT(*) FROM duty_schedules WHERE team_id=?", (team_id,)
-            ).fetchone()[0]
+            ).fetchone())
             if remaining == 0:
                 conn.execute(
                     "DELETE FROM duty_replacements WHERE team_id=?", (team_id,)
