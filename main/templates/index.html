@@ -37,6 +37,22 @@
 
 <div id="calendarView">
 <div class="toolbar">
+  {% if kerberos_active %}
+    <div class="me-form">
+      {% if kerberos_identified %}
+        <span class="muted">Signed in as</span>
+        <span style="font-weight:600;font-size:13px;">{{ model.members | selectattr('id','equalto',model.me_id) | map(attribute='name') | first }}</span>
+        {% if model.my_stats %}
+        <span class="divider"></span>
+        <span class="stat"><b>{{ model.my_stats.allowance }} h</b><i>Allowance {{ model.year }}</i></span>
+        <span class="stat"><b id="statUsed">{{ model.my_stats.used_days }} d</b><i>Used {{ model.year }}</i></span>
+        <span class="stat ok"><b id="statRemaining">{{ model.my_stats.rem_days }} d</b><i>Remaining {{ model.year }}</i></span>
+        {% endif %}
+      {% else %}
+        <span class="muted">View only — your account is not registered in this app</span>
+      {% endif %}
+    </div>
+  {% else %}
   <form method="get" class="me-form">
     <span class="muted">I am</span>
     <input type="hidden" name="year" value="{{ model.year }}">
@@ -53,6 +69,7 @@
     <span class="stat ok"><b id="statRemaining">{{ model.my_stats.rem_days }} d</b><i>Remaining {{ model.year }}</i></span>
     {% endif %}
   </form>
+  {% endif %}
   <a class="ghost" href="{{ url_for('main.duty_page') }}">Duty schedule</a>
   {% if is_admin %}
   <button class="ghost" id="manageOpenBtn">Manage teams &amp; people</button>
@@ -66,7 +83,7 @@
       {% if p.is_me %}<span class="tag">ME</span>{% endif %}
     </div>
     {% for cell in p.cells %}
-      <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if p.is_me else 'locked' }}"
+      <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if (p.is_me and (not kerberos_active or kerberos_identified)) else 'locked' }}"
            data-member="{{ p.id }}" data-date="{{ cell.iso }}" data-status="{{ cell.status or '' }}">
         {% if cell.status == 'hva' %}
           <span class="chip half"><span class="half-text">HVA</span></span>
@@ -107,6 +124,13 @@
           <label class="effective-field">Until
             <input type="date" name="end_date"
                    value="{{ (this_pending | selectattr('end_date', 'defined') | map(attribute='end_date') | first) or '' }}">
+          </label>
+          <button type="submit" class="ghost small apply-btn">Apply</button>
+        </form>
+        <form method="post" action="{{ url_for('main.update_member_cza') }}" class="effective-fields">
+          <input type="hidden" name="member_id" value="{{ m.id }}">
+          <label class="effective-field">CZA
+            <input type="text" name="cza" value="{{ m.cza or '' }}" placeholder="e.g. jnovak" style="width:110px;">
           </label>
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
@@ -297,6 +321,8 @@
       <form method="post" action="{{ url_for('main.add_member') }}" id="addPersonForm">
         <label>Name</label>
         <input name="name" placeholder="Full name" required>
+        <label>CZA <span style="font-size:11px;color:var(--sub);">(internal ID)</span></label>
+        <input name="cza" placeholder="e.g. jnovak">
         <label>Vacation allowance</label>
         <div class="allowance-row">
           <input name="allowance" id="allowanceInput" type="number" min="0" value="200">

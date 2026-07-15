@@ -285,6 +285,11 @@ def init_db():
                 )
             conn.commit()
 
+        m_cols = {c["name"] for c in conn.execute("PRAGMA table_info(members)")}
+        if "cza" not in m_cols:
+            conn.execute("ALTER TABLE members ADD COLUMN cza TEXT")
+            conn.commit()
+
         conn.execute("PRAGMA foreign_keys = ON")
 
     old_to_new = {"ofc": "wrk", "wfh": "wrk", "trp": "wrk", "sck": "upl", "fre": "upl"}
@@ -391,7 +396,7 @@ def build_model(year, month, me_id):
 
     days = month_days(year, month)
     members = [dict(r) for r in members_rows]
-    if not any(m["id"] == me_id for m in members) and members:
+    if me_id and not any(m["id"] == me_id for m in members) and members:
         me_id = members[0]["id"]
 
     def build_people(group_members):
@@ -521,17 +526,45 @@ def build_model(year, month, me_id):
     }
 
 
+def _get_kerberos_me(conn):
+    """Try Kerberos identification. Returns member id (int), None (no match), or False (local dev)."""
+    try:
+        from idm.idm_auth import idm_get_ticket_kerberos
+    except ImportError:
+        return False
+    try:
+        ticket = idm_get_ticket_kerberos()
+        if ticket:
+            row = conn.execute(_sql("SELECT id FROM members WHERE cza=?"), (ticket,)).fetchone()
+            if row:
+                return row["id"]
+    except Exception:
+        pass
+    return None
+
+
 @bp_main.route("/")
 def index():
     today = date.today()
     year = request.args.get("year", default=today.year, type=int)
     month = request.args.get("month", default=today.month, type=int)
-    me_id = request.args.get("me", default=0, type=int)
 
     while month < 1:
         month += 12; year -= 1
     while month > 12:
         month -= 12; year += 1
+
+    conn = db()
+    kerb = _get_kerberos_me(conn)
+    conn.close()
+
+    kerberos_active = kerb is not False
+    if kerberos_active:
+        me_id = kerb or 0
+        kerberos_identified = kerb is not None
+    else:
+        me_id = request.args.get("me", default=0, type=int)
+        kerberos_identified = False
 
     model = build_model(year, month, me_id)
     prev_m, prev_y = (month - 1, year) if month > 1 else (12, year - 1)
@@ -543,6 +576,8 @@ def index():
         next={"y": next_y, "m": next_m},
         today={"y": today.year, "m": today.month},
         is_admin=bool(session.get("is_admin")),
+        kerberos_active=kerberos_active,
+        kerberos_identified=kerberos_identified,
     )
 
 
@@ -606,9 +641,16 @@ def set_status():
     if status not in STATUS:
         status = None
 
-    me_id = data.get("me_id")
-    if me_id is None or int(me_id) != member_id:
-        abort(403)
+    if not session.get("is_admin"):
+        conn_auth = db()
+        kerb = _get_kerberos_me(conn_auth)
+        conn_auth.close()
+        if kerb is False:
+            me_id = data.get("me_id")
+            if me_id is None or int(me_id) != member_id:
+                abort(403)
+        elif kerb != member_id:
+            abort(403)
 
     non_workdays = [
         d for d in dates
@@ -779,6 +821,7 @@ def delete_team():
 @admin_required
 def add_member():
     name = (request.form.get("name") or "").strip()
+    cza = (request.form.get("cza") or "").strip() or None
     team_ids = request.form.getlist("team_ids", type=int)
     allowance = request.form.get("allowance", type=int) or 200
     if request.form.get("allowance_unit") == "days":
@@ -790,7 +833,7 @@ def add_member():
             conn.close()
             flash(f"A person named '{name}' already exists.")
         else:
-            member_id = _execute_id(conn, "INSERT INTO members(name, allowance) VALUES (?,?)", (name, allowance))
+            member_id = _execute_id(conn, "INSERT INTO members(name, allowance, cza) VALUES (?,?,?)", (name, allowance, cza))
             today_iso = date.today().isoformat()
             conn.executemany(
                 "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
@@ -798,6 +841,19 @@ def add_member():
             )
             conn.commit()
             conn.close()
+    return redirect(request.referrer or url_for("main.index"))
+
+
+@bp_main.route("/member/cza", methods=["POST"])
+@admin_required
+def update_member_cza():
+    member_id = request.form.get("member_id", type=int)
+    cza = (request.form.get("cza") or "").strip() or None
+    if member_id:
+        conn = db()
+        conn.execute(_sql("UPDATE members SET cza=? WHERE id=?"), (cza, member_id))
+        conn.commit()
+        conn.close()
     return redirect(request.referrer or url_for("main.index"))
 
 
