@@ -129,8 +129,8 @@
         </form>
         <form method="post" action="{{ url_for('main.update_member_cza') }}" class="effective-fields">
           <input type="hidden" name="member_id" value="{{ m.id }}">
-          <label class="effective-field">CZA
-            <input type="text" name="cza" value="{{ m.cza or '' }}" placeholder="e.g. jnovak" style="width:110px;">
+          <label class="effective-field">cza
+            <input type="text" name="cza" value="{{ m.cza or '' }}" placeholder="cza*****" style="width:110px;">
           </label>
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
@@ -319,10 +319,16 @@
     <div class="msection">
       <h4>Add person</h4>
       <form method="post" action="{{ url_for('main.add_member') }}" id="addPersonForm">
-        <label>Name</label>
-        <input name="name" placeholder="Full name" required>
-        <label>CZA <span style="font-size:11px;color:var(--sub);">(internal ID)</span></label>
-        <input name="cza" placeholder="e.g. jnovak">
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;">
+            <label>Name</label>
+            <input name="name" placeholder="Full name" required style="width:100%;">
+          </div>
+          <div style="flex:1;">
+            <label>cza</label>
+            <input name="cza" placeholder="cza*****" style="width:100%;">
+          </div>
+        </div>
         <label>Vacation allowance</label>
         <div class="allowance-row">
           <input name="allowance" id="allowanceInput" type="number" min="0" value="200">
