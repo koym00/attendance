@@ -148,7 +148,7 @@ body.cal-page.manage-mode .manage{display:grid; flex:1; min-height:0; overflow-y
 .mcard button{width:100%; margin-top:14px; padding:9px; border-radius:7px; border:none;
   background:var(--ink); color:#fff; font-size:13px; font-weight:600; cursor:pointer;}
 .mcard button:hover{opacity:.92;}
-.mlist{display:flex; flex-direction:column; gap:6px;}
+.mlist{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:6px;}
 .mrow{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px;
   background:var(--panel); border:1px solid var(--line); border-radius:7px; padding:7px 11px; margin:0;}
 .mrow>span:first-child{font-weight:600; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -156,7 +156,7 @@ body.cal-page.manage-mode .manage{display:grid; flex:1; min-height:0; overflow-y
 .empty-hint{font-size:12px; color:var(--sub); margin:0;}
 .flash-error{font-size:12px; color:#B91C1C; background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25);
   border-radius:7px; padding:8px 12px; margin:10px 0 0;}
-.people-groups{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;}
+.people-groups{display:flex; flex-direction:column; gap:14px;}
 .people-group{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;}
 .people-group-head{font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase;
   letter-spacing:.6px; margin:0 0 8px;}
