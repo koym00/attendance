@@ -595,13 +595,6 @@ def index():
     )
 
 
-@bp_main.route("/debug/user")
-def debug_user():
-    interesting = {k: v for k, v in request.environ.items()
-                   if isinstance(v, str) and any(x in k.upper()
-                   for x in ["USER", "LOGIN", "AUTH", "REMOTE", "KERB", "LDAP", "NAME", "PRINCIPAL"])}
-    return jsonify({"environ": interesting, "headers": dict(request.headers)})
-
 
 @bp_main.route("/admin/login", methods=["POST"])
 def admin_login():
