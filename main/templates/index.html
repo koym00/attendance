@@ -83,8 +83,9 @@
       {% if p.is_me %}<span class="tag">ME</span>{% endif %}
     </div>
     {% for cell in p.cells %}
-      <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if (p.is_me and (not kerberos_active or kerberos_identified)) else 'locked' }}"
-           data-member="{{ p.id }}" data-date="{{ cell.iso }}" data-status="{{ cell.status or '' }}">
+      <div class="daycol cell {{ 'weekend' if cell.weekend }} {{ 'holiday' if cell.holiday }} {{ 'mine' if (is_admin or (p.is_me and (not kerberos_active or kerberos_identified))) else 'locked' }}"
+           data-member="{{ p.id }}" data-date="{{ cell.iso }}" data-status="{{ cell.status or '' }}"
+           data-me="{{ model.me_id }}">
         {% if cell.status == 'hva' %}
           <span class="chip half"><span class="half-text">HVA</span></span>
         {% elif cell.status %}
