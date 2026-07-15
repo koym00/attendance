@@ -135,9 +135,33 @@ let dragMember = null;
 let dragDates = [];
 let suppressNextClick = false;
 
+function updatePickerHead() {
+  if (!active) return;
+  const sorted = [...active.dates].sort();
+  const headEl = pop.querySelector(".head");
+  if (headEl) headEl.textContent = sorted.length > 1 ? `${sorted.length} days selected` : sorted[0];
+}
+
 document.querySelectorAll(".cell.mine:not(.holiday):not(.weekend)").forEach((cell) => {
   cell.addEventListener("mousedown", (e) => {
     e.preventDefault();
+    // picker already open for this member — toggle cell in/out of selection
+    if (active && active.member === cell.dataset.member) {
+      const d = cell.dataset.date;
+      const idx = active.dates.indexOf(d);
+      if (idx >= 0) {
+        active.dates.splice(idx, 1);
+        cell.classList.remove("selecting");
+        if (active.dates.length === 0) { closePicker(); } else { updatePickerHead(); }
+      } else {
+        active.dates.push(d);
+        cell.classList.add("selecting");
+        updatePickerHead();
+      }
+      suppressNextClick = true;
+      return;
+    }
+    // different member or no selection — start fresh
     closePicker();
     dragging = true;
     dragMember = cell.dataset.member;
