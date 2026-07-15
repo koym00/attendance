@@ -1,4 +1,5 @@
 import os
+import json
 from os import getenv
 import secrets
 from datetime import date, timedelta
@@ -27,6 +28,19 @@ DB_PATH = os.path.join(BASE_DIR, "attendance.db")
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "1234"
+
+_CREDS_FILE = os.path.join(BASE_DIR, "admin_creds.json")
+
+
+def _get_creds():
+    if os.path.exists(_CREDS_FILE):
+        try:
+            with open(_CREDS_FILE) as f:
+                d = json.load(f)
+                return d.get("username", ADMIN_USERNAME), d.get("password", ADMIN_PASSWORD)
+        except Exception:
+            pass
+    return ADMIN_USERNAME, ADMIN_PASSWORD
 
 # ── database backend ──────────────────────────────────────────────────────────
 _USE_PG = bool(getenv("DOCHAZKA_1_HOST"))
@@ -578,6 +592,7 @@ def index():
         is_admin=bool(session.get("is_admin")),
         kerberos_active=kerberos_active,
         kerberos_identified=kerberos_identified,
+        admin_username=_get_creds()[0],
     )
 
 
@@ -594,7 +609,8 @@ def admin_login():
     data = request.get_json(force=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
-    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+    stored_user, stored_pass = _get_creds()
+    if username == stored_user and password == stored_pass:
         session["is_admin"] = True
         return jsonify(ok=True)
     return jsonify(ok=False, error="Invalid username or password"), 401
@@ -604,6 +620,20 @@ def admin_login():
 def admin_logout():
     session.pop("is_admin", None)
     return jsonify(ok=True)
+
+
+@bp_main.route("/admin/credentials", methods=["POST"])
+@admin_required
+def update_admin_credentials():
+    new_username = (request.form.get("username") or "").strip()
+    new_password = (request.form.get("password") or "").strip()
+    if new_username and new_password:
+        try:
+            with open(_CREDS_FILE, "w") as f:
+                json.dump({"username": new_username, "password": new_password}, f)
+        except Exception:
+            pass
+    return redirect(request.referrer or url_for("main.index"))
 
 
 def vacation_allowance_block(conn, member_id, dates, new_status):

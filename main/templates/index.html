@@ -353,6 +353,19 @@
       </form>
     </div>
   </div>
+
+  <div class="mcard">
+    <h3>Admin credentials</h3>
+    <div class="msection">
+      <form method="post" action="{{ url_for('main.update_admin_credentials') }}">
+        <label>Username</label>
+        <input name="username" value="{{ admin_username }}" required>
+        <label>New password</label>
+        <input name="password" type="password" placeholder="Enter new password" required>
+        <button type="submit">Update</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endif %}
 
