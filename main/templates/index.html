@@ -354,36 +354,46 @@
     </div>
   </div>
 
-  <div class="mcard">
-    <h3>Admin credentials</h3>
-    <div class="msection">
-      <form method="post" action="{{ url_for('main.update_admin_credentials') }}">
-        <label>Username</label>
-        <input name="username" value="{{ admin_username }}" required>
-        <label>New password</label>
-        <input name="password" type="password" placeholder="Enter new password" required>
-        <button type="submit">Update</button>
-      </form>
-    </div>
-  </div>
 </div>
 {% endif %}
 
 <!-- admin login modal -->
 <div id="adminModal" class="modal-backdrop" hidden>
   <div class="modal">
-    <h3>Admin sign in</h3>
-    <form id="adminForm">
-      <label>Username</label>
-      <input name="username" autocomplete="username" required>
-      <label>Password</label>
-      <input name="password" type="password" autocomplete="current-password" required>
-      <div class="modal-error" id="adminError" hidden>Invalid username or password</div>
-      <div class="modal-actions">
-        <button type="button" class="ghost" id="adminCancel">Cancel</button>
-        <button type="submit">Sign in</button>
+    <div id="adminLoginView">
+      <h3>Admin sign in</h3>
+      <form id="adminForm">
+        <label>Username</label>
+        <input name="username" autocomplete="username" required>
+        <label>Password</label>
+        <input name="password" type="password" autocomplete="current-password" required>
+        <div class="modal-error" id="adminError" hidden>Invalid username or password</div>
+        <div class="modal-actions">
+          <button type="button" class="ghost" id="adminCancel">Cancel</button>
+          <button type="submit">Sign in</button>
+        </div>
+      </form>
+      <div class="modal-change-link">
+        <button type="button" class="link-btn" id="showChangeCredsBtn">Change credentials</button>
       </div>
-    </form>
+    </div>
+    <div id="adminChangeCredsView" hidden>
+      <h3>Change credentials</h3>
+      <form id="adminChangeCredsForm">
+        <label>Current password</label>
+        <input name="current_password" type="password" required>
+        <label>New username</label>
+        <input name="new_username" autocomplete="off" required>
+        <label>New password</label>
+        <input name="new_password" type="password" autocomplete="new-password" required>
+        <div class="modal-error" id="adminChangeCredsError" hidden></div>
+        <div class="modal-success" id="adminChangeCredsSuccess" hidden>Credentials updated.</div>
+        <div class="modal-actions">
+          <button type="button" class="ghost" id="backToLoginBtn">Back</button>
+          <button type="submit">Update</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 

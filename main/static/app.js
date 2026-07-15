@@ -177,30 +177,46 @@ window.addEventListener("scroll", closePicker, true);
 window.addEventListener("resize", closePicker);
 
 // ------------------------------------------------------------------ //
-//  Admin sign-in / sign-out                                          //
+//  Admin sign-in / sign-out / credentials change                     //
 // ------------------------------------------------------------------ //
 const adminLoginBtn = document.getElementById("adminLoginBtn");
 const adminLogoutBtn = document.getElementById("adminLogout");
 const adminModal = document.getElementById("adminModal");
+const adminLoginView = document.getElementById("adminLoginView");
+const adminChangeCredsView = document.getElementById("adminChangeCredsView");
 const adminForm = document.getElementById("adminForm");
 const adminCancel = document.getElementById("adminCancel");
 const adminError = document.getElementById("adminError");
+const showChangeCredsBtn = document.getElementById("showChangeCredsBtn");
+const backToLoginBtn = document.getElementById("backToLoginBtn");
+const adminChangeCredsForm = document.getElementById("adminChangeCredsForm");
+const adminChangeCredsError = document.getElementById("adminChangeCredsError");
+const adminChangeCredsSuccess = document.getElementById("adminChangeCredsSuccess");
+
+function closeAdminModal() {
+  if (!adminModal) return;
+  adminModal.hidden = true;
+  if (adminLoginView) adminLoginView.hidden = false;
+  if (adminChangeCredsView) adminChangeCredsView.hidden = true;
+}
 
 if (adminLoginBtn) {
   adminLoginBtn.addEventListener("click", () => {
     adminError.hidden = true;
     adminForm.reset();
+    if (adminLoginView) adminLoginView.hidden = false;
+    if (adminChangeCredsView) adminChangeCredsView.hidden = true;
     adminModal.hidden = false;
   });
 }
 
 if (adminCancel) {
-  adminCancel.addEventListener("click", () => { adminModal.hidden = true; });
+  adminCancel.addEventListener("click", closeAdminModal);
 }
 
 if (adminModal) {
   adminModal.addEventListener("click", (e) => {
-    if (e.target === adminModal) adminModal.hidden = true;
+    if (e.target === adminModal) closeAdminModal();
   });
 }
 
@@ -222,6 +238,54 @@ if (adminForm) {
       }
     } catch (e2) {
       adminError.hidden = false;
+    }
+  });
+}
+
+if (showChangeCredsBtn) {
+  showChangeCredsBtn.addEventListener("click", () => {
+    adminLoginView.hidden = true;
+    adminChangeCredsView.hidden = false;
+    if (adminChangeCredsForm) adminChangeCredsForm.reset();
+    if (adminChangeCredsError) adminChangeCredsError.hidden = true;
+    if (adminChangeCredsSuccess) adminChangeCredsSuccess.hidden = true;
+  });
+}
+
+if (backToLoginBtn) {
+  backToLoginBtn.addEventListener("click", () => {
+    adminChangeCredsView.hidden = true;
+    adminLoginView.hidden = false;
+  });
+}
+
+if (adminChangeCredsForm) {
+  adminChangeCredsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(adminChangeCredsForm);
+    adminChangeCredsError.hidden = true;
+    adminChangeCredsSuccess.hidden = true;
+    try {
+      const res = await fetch(BASE + "/admin/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_password: fd.get("current_password"),
+          new_username: fd.get("new_username"),
+          new_password: fd.get("new_password"),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        adminChangeCredsSuccess.hidden = false;
+        adminChangeCredsForm.reset();
+      } else {
+        adminChangeCredsError.textContent = data.error || "Update failed.";
+        adminChangeCredsError.hidden = false;
+      }
+    } catch (e2) {
+      adminChangeCredsError.textContent = "Could not reach the server.";
+      adminChangeCredsError.hidden = false;
     }
   });
 }

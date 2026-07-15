@@ -592,7 +592,6 @@ def index():
         is_admin=bool(session.get("is_admin")),
         kerberos_active=kerberos_active,
         kerberos_identified=kerberos_identified,
-        admin_username=_get_creds()[0],
     )
 
 
@@ -623,17 +622,22 @@ def admin_logout():
 
 
 @bp_main.route("/admin/credentials", methods=["POST"])
-@admin_required
 def update_admin_credentials():
-    new_username = (request.form.get("username") or "").strip()
-    new_password = (request.form.get("password") or "").strip()
-    if new_username and new_password:
-        try:
-            with open(_CREDS_FILE, "w") as f:
-                json.dump({"username": new_username, "password": new_password}, f)
-        except Exception:
-            pass
-    return redirect(request.referrer or url_for("main.index"))
+    data = request.get_json(force=True) or {}
+    current_password = (data.get("current_password") or "").strip()
+    new_username = (data.get("new_username") or "").strip()
+    new_password = (data.get("new_password") or "").strip()
+    if not current_password or not new_username or not new_password:
+        return jsonify(ok=False, error="All fields are required"), 400
+    _, stored_pass = _get_creds()
+    if current_password != stored_pass:
+        return jsonify(ok=False, error="Incorrect current password"), 401
+    try:
+        with open(_CREDS_FILE, "w") as f:
+            json.dump({"username": new_username, "password": new_password}, f)
+    except Exception:
+        return jsonify(ok=False, error="Failed to save credentials"), 500
+    return jsonify(ok=True)
 
 
 def vacation_allowance_block(conn, member_id, dates, new_status):
