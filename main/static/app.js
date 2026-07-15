@@ -29,9 +29,13 @@ function chipHtml(status) {
 }
 
 function setSelecting(dates, on) {
+  if (!on) {
+    document.querySelectorAll(".cell.selecting").forEach(c => c.classList.remove("selecting"));
+    return;
+  }
   dates.forEach((d) => {
     const cell = document.querySelector(`.cell.mine[data-date="${d}"]`);
-    if (cell) cell.classList.toggle("selecting", on);
+    if (cell) cell.classList.add("selecting");
   });
 }
 
