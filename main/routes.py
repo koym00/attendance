@@ -1141,6 +1141,15 @@ def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
         ]
 
     today = date.today()
+    year_start = date(year, 1, 1)
+
+    # days each member has been in the team within this year (up to today)
+    days_in_team: dict = {}
+    for mid, s, e in _memberships:
+        eff_start = max(date.fromisoformat(s) if s else year_start, year_start)
+        eff_end   = min(date.fromisoformat(e) if e else today, today)
+        days = max(1, (eff_end - eff_start).days + 1)
+        days_in_team[mid] = days_in_team.get(mid, 0) + days
 
     year_start = date(year, 1, 1)
     scan_end = min(today, date(year, 12, 31))
@@ -1231,15 +1240,19 @@ def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
                 continue
             eff_m = effective_status(att_map.get((mid, iso)), False, iso in holidays)
             if eff_m in WORKING:
-                candidates.append((rep_counts.get(mid, 0), mid))
+                candidates.append(mid)
 
         if not candidates:
             result.append({"date": iso, "wd": wd, "scheduled_id": scheduled_id, "effective_id": None,
                            "is_replacement": False, "is_manual": False, "no_coverage": True})
             continue
 
-        candidates.sort(key=lambda x: (x[0], sched_duty_counts.get(x[1], 0), x[1]))
-        replacer_id = candidates[0][1]
+        def _rate(mid):
+            d = days_in_team.get(mid, 1)
+            return (rep_counts.get(mid, 0) / d, sched_duty_counts.get(mid, 0) / d, mid)
+
+        candidates.sort(key=_rate)
+        replacer_id = candidates[0]
 
         if d <= today:
             conn.execute(
