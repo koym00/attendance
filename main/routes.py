@@ -894,6 +894,11 @@ def add_member():
         else:
             member_id = _execute_id(conn, _sql("INSERT INTO members(name, allowance, cza, fraction) VALUES (?,?,?,?)"), (name, allowance, cza, fraction))
             today_iso = date.today().isoformat()
+            current_year = date.today().year
+            conn.execute(
+                _sql("INSERT INTO member_allowances(member_id, year, allowance) VALUES (?,?,?) ON CONFLICT(member_id, year) DO NOTHING"),
+                (member_id, current_year, allowance),
+            )
             conn.executemany(
                 "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
                 [(member_id, team_id, today_iso) for team_id in set(team_ids)],
