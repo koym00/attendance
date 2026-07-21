@@ -129,8 +129,9 @@ STATUS = {
     "upl": {"label": "Unpaid Leave",      "color": "#64748B", "working": False},
     "lyr": {"label": "Last Year",         "color": "#0891B2", "working": False},
     "bdy": {"label": "Birthday",          "color": "#D97706", "working": False},
+    "chr": {"label": "Charity",           "color": "#E11D48", "working": False},
 }
-ORDER = ["wrk", "vac", "hva", "flx", "rst", "ple", "fic", "upl", "lyr", "bdy"]
+ORDER = ["wrk", "vac", "hva", "flx", "rst", "ple", "fic", "upl", "lyr", "bdy", "chr"]
 WORKING = {k for k, v in STATUS.items() if v["working"]}
 
 VAC_WEIGHT = {"vac": 1.0, "hva": 0.5, "flx": 1.0, "rst": 1.0, "ple": 1.0, "fic": 1.0}
