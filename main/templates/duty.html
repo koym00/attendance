@@ -241,30 +241,34 @@
       {% endif %}
       <div class="slot-list">
         {% set wd_names = ['Mon','Tue','Wed','Thu','Fri'] %}
-        {% for offset in range(schedule.period_days) %}
-          {% set slot = slots.get(offset) %}
-          <div class="slot-row">
-            <span class="slot-label">{{ wd_names[(schedule.start_wd + offset) % 5] }}{% if schedule.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
-            <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
-              <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
-              <input type="hidden" name="day_offset" value="{{ offset }}">
-              <input type="hidden" name="team_id" value="{{ team_id }}">
-              {% if is_admin %}
-                <select name="member_id" onchange="this.form.submit()">
-                  <option value="">— Unassigned —</option>
-                  {% for m in team_members %}
-                    {% if m.id not in duty_ineligible_ids %}
-                      <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
-                    {% endif %}
-                  {% endfor %}
-                </select>
-              {% else %}
-                <span style="font-size:12.5px; font-weight:600;">
-                  {{ member_names.get(slot.member_id, '—') if slot and slot.member_id else '—' }}
-                </span>
-              {% endif %}
-            </form>
-          </div>
+        {% set weeks = schedule.period_days // 5 %}
+        {% for week in range(weeks) %}
+          {% for wd in range(5) %}
+            {% set offset = (wd - schedule.start_wd + 5) % 5 + week * 5 %}
+            {% set slot = slots.get(offset) %}
+            <div class="slot-row">
+              <span class="slot-label">{{ wd_names[wd] }}{% if schedule.period_days > 5 %} {{ week + 1 }}{% endif %}</span>
+              <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
+                <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
+                <input type="hidden" name="day_offset" value="{{ offset }}">
+                <input type="hidden" name="team_id" value="{{ team_id }}">
+                {% if is_admin %}
+                  <select name="member_id" onchange="this.form.submit()">
+                    <option value="">— Unassigned —</option>
+                    {% for m in team_members %}
+                      {% if m.id not in duty_ineligible_ids %}
+                        <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                {% else %}
+                  <span style="font-size:12.5px; font-weight:600;">
+                    {{ member_names.get(slot.member_id, '—') if slot and slot.member_id else '—' }}
+                  </span>
+                {% endif %}
+              </form>
+            </div>
+          {% endfor %}
         {% endfor %}
       </div>
       {% if is_admin and current_duty_members %}
@@ -317,24 +321,28 @@
       </form>
       <div class="slot-list">
         {% set wd_names = ['Mon','Tue','Wed','Thu','Fri'] %}
-        {% for offset in range(us.period_days) %}
-          {% set slot = us.slots.get(offset) %}
-          <div class="slot-row">
-            <span class="slot-label">{{ wd_names[(us.start_wd + offset) % 5] }}{% if us.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
-            <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
-              <input type="hidden" name="schedule_id" value="{{ us.id }}">
-              <input type="hidden" name="day_offset" value="{{ offset }}">
-              <input type="hidden" name="team_id" value="{{ team_id }}">
-              <select name="member_id" onchange="this.form.submit()">
-                <option value="">— Unassigned —</option>
-                {% for m in team_members %}
-                  {% if m.id not in duty_ineligible_ids %}
-                    <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
-                  {% endif %}
-                {% endfor %}
-              </select>
-            </form>
-          </div>
+        {% set weeks = us.period_days // 5 %}
+        {% for week in range(weeks) %}
+          {% for wd in range(5) %}
+            {% set offset = (wd - us.start_wd + 5) % 5 + week * 5 %}
+            {% set slot = us.slots.get(offset) %}
+            <div class="slot-row">
+              <span class="slot-label">{{ wd_names[wd] }}{% if us.period_days > 5 %} {{ week + 1 }}{% endif %}</span>
+              <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
+                <input type="hidden" name="schedule_id" value="{{ us.id }}">
+                <input type="hidden" name="day_offset" value="{{ offset }}">
+                <input type="hidden" name="team_id" value="{{ team_id }}">
+                <select name="member_id" onchange="this.form.submit()">
+                  <option value="">— Unassigned —</option>
+                  {% for m in team_members %}
+                    {% if m.id not in duty_ineligible_ids %}
+                      <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </form>
+            </div>
+          {% endfor %}
         {% endfor %}
       </div>
       {% if current_duty_members %}
