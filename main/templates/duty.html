@@ -9,18 +9,36 @@
     .duty-layout{display:grid; grid-template-columns:1fr 340px; gap:24px; padding:20px 22px 60px; align-items:start;}
     @media (max-width:900px){.duty-layout{grid-template-columns:1fr;}}
 
-    /* member eligibility toggles */
-    .members-section{margin-top:14px; border-top:1px solid var(--line); padding-top:12px;}
-    .members-summary{font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase;
-      letter-spacing:.4px; cursor:pointer; user-select:none; list-style:none;}
-    .members-summary::-webkit-details-marker{display:none;}
-    .members-list{margin-top:10px; display:flex; flex-direction:column; gap:5px;}
+    /* members button */
+    .duty-members-btn{display:flex; align-items:center; justify-content:space-between;
+      width:100%; margin-top:12px; padding:8px 12px; border:1px solid var(--line);
+      border-radius:7px; background:#fff; color:var(--ink); font-size:12.5px;
+      font-weight:600; cursor:pointer; text-align:left;}
+    .duty-members-btn:hover{background:var(--panel);}
+
+    /* members modal */
+    #dutyMembersModal{display:none; position:fixed; inset:0; background:rgba(0,0,0,.35);
+      z-index:300; align-items:center; justify-content:center;}
+    #dutyMembersModal.open{display:flex;}
+    .dm-popup{background:#fff; border-radius:12px; padding:20px 22px; min-width:260px;
+      max-width:320px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,.2);}
+    .dm-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+    .dm-title{font-size:13.5px; font-weight:700;}
+    .dm-close{background:none; border:none; font-size:18px; cursor:pointer; color:var(--sub);
+      line-height:1; padding:0 2px;}
+    .dm-list{display:flex; flex-direction:column; gap:6px;}
     .member-elig-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
     .member-elig-name{font-size:12.5px; flex:1;}
     .duty-toggle{font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;
       border:none; cursor:pointer; line-height:1.4;}
     .duty-toggle.on{background:rgba(22,163,74,.15); color:#15803D;}
     .duty-toggle.off{background:var(--line); color:var(--sub);}
+    @media (prefers-color-scheme:dark){
+      .dm-popup{background:var(--panel);}
+      .duty-members-btn{background:var(--panel);}
+    }
+    :root[data-theme="dark"] .dm-popup{background:var(--panel);}
+    :root[data-theme="dark"] .duty-members-btn{background:var(--panel);}
 
     /* duty calendar */
     .duty-cal{display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
@@ -250,25 +268,15 @@
         {% endfor %}
       </div>
       {% if is_admin and current_duty_members %}
-      <details class="members-section">
-        <summary class="members-summary">Members</summary>
-        <div class="members-list">
-          {% for m in current_duty_members %}
-            {% set is_eligible = m.id not in duty_ineligible_ids %}
-            <form method="post" action="{{ url_for('main.duty_toggle_member') }}" class="member-elig-row">
-              <input type="hidden" name="team_id" value="{{ team_id }}">
-              <input type="hidden" name="member_id" value="{{ m.id }}">
-              <input type="hidden" name="eligible" value="{{ 0 if is_eligible else 1 }}">
-              <input type="hidden" name="year" value="{{ year }}">
-              <input type="hidden" name="month" value="{{ month }}">
-              <span class="member-elig-name">{{ m.name }}</span>
-              <button type="submit" class="duty-toggle {{ 'on' if is_eligible else 'off' }}">
-                {{ 'On' if is_eligible else 'Off' }}
-              </button>
-            </form>
-          {% endfor %}
-        </div>
-      </details>
+      <button type="button" class="duty-members-btn"
+        data-team="{{ team_id }}"
+        data-year="{{ year }}"
+        data-month="{{ month }}"
+        data-members="{{ current_duty_members | tojson | e }}"
+        data-ineligible="{{ duty_ineligible_ids | list | tojson | e }}"
+        onclick="openDutyMembers(this)">
+        Members <span style="font-size:11px; color:var(--sub);">›</span>
+      </button>
       {% endif %}
       {% if is_admin %}
       <form method="post" action="{{ url_for('main.duty_delete_schedule') }}"
@@ -330,25 +338,15 @@
         {% endfor %}
       </div>
       {% if current_duty_members %}
-      <details class="members-section">
-        <summary class="members-summary">Members</summary>
-        <div class="members-list">
-          {% for m in current_duty_members %}
-            {% set is_eligible = m.id not in duty_ineligible_ids %}
-            <form method="post" action="{{ url_for('main.duty_toggle_member') }}" class="member-elig-row">
-              <input type="hidden" name="team_id" value="{{ team_id }}">
-              <input type="hidden" name="member_id" value="{{ m.id }}">
-              <input type="hidden" name="eligible" value="{{ 0 if is_eligible else 1 }}">
-              <input type="hidden" name="year" value="{{ year }}">
-              <input type="hidden" name="month" value="{{ month }}">
-              <span class="member-elig-name">{{ m.name }}</span>
-              <button type="submit" class="duty-toggle {{ 'on' if is_eligible else 'off' }}">
-                {{ 'On' if is_eligible else 'Off' }}
-              </button>
-            </form>
-          {% endfor %}
-        </div>
-      </details>
+      <button type="button" class="duty-members-btn"
+        data-team="{{ team_id }}"
+        data-year="{{ year }}"
+        data-month="{{ month }}"
+        data-members="{{ current_duty_members | tojson | e }}"
+        data-ineligible="{{ duty_ineligible_ids | list | tojson | e }}"
+        onclick="openDutyMembers(this)">
+        Members <span style="font-size:11px; color:var(--sub);">›</span>
+      </button>
       {% endif %}
       {% endif %}
     </div>
@@ -430,5 +428,88 @@
 
   </div><!-- /duty-panel -->
 </div><!-- /duty-layout -->
+<!-- duty members modal -->
+<div id="dutyMembersModal">
+  <div class="dm-popup">
+    <div class="dm-head">
+      <div class="dm-title">Members</div>
+      <button type="button" class="dm-close" id="dutyMembersClose" aria-label="Close">×</button>
+    </div>
+    <div class="dm-list" id="dutyMembersList"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const TOGGLE_URL = "{{ url_for('main.duty_toggle_member') }}";
+  const modal = document.getElementById("dutyMembersModal");
+  const list  = document.getElementById("dutyMembersList");
+  let _team, _year, _month;
+
+  window.openDutyMembers = function (btn) {
+    _team  = btn.dataset.team;
+    _year  = btn.dataset.year;
+    _month = btn.dataset.month;
+    const members    = JSON.parse(btn.dataset.members);
+    const ineligible = new Set(JSON.parse(btn.dataset.ineligible));
+
+    list.innerHTML = "";
+    members.forEach(function (m) {
+      const eligible = !ineligible.has(m.id);
+      const row = document.createElement("div");
+      row.className = "member-elig-row";
+      const nameEl = document.createElement("span");
+      nameEl.className = "member-elig-name";
+      nameEl.textContent = m.name;
+      const togBtn = document.createElement("button");
+      togBtn.type = "button";
+      togBtn.className = "duty-toggle " + (eligible ? "on" : "off");
+      togBtn.textContent = eligible ? "On" : "Off";
+      togBtn.dataset.memberId = m.id;
+      togBtn.dataset.eligible = eligible ? "1" : "0";
+      row.appendChild(nameEl);
+      row.appendChild(togBtn);
+      list.appendChild(row);
+    });
+
+    modal.classList.add("open");
+  };
+
+  list.addEventListener("click", async function (e) {
+    const btn = e.target.closest(".duty-toggle");
+    if (!btn) return;
+    const memberId   = btn.dataset.memberId;
+    const isEligible = btn.dataset.eligible === "1";
+    btn.disabled = true;
+
+    const fd = new FormData();
+    fd.append("team_id",   _team);
+    fd.append("member_id", memberId);
+    fd.append("eligible",  isEligible ? "0" : "1");
+    fd.append("year",      _year);
+    fd.append("month",     _month);
+
+    try {
+      const res = await fetch(TOGGLE_URL, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        body: fd,
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const nowEligible = !isEligible;
+        btn.dataset.eligible = nowEligible ? "1" : "0";
+        btn.className = "duty-toggle " + (nowEligible ? "on" : "off");
+        btn.textContent = nowEligible ? "On" : "Off";
+      }
+    } catch (_) {}
+    btn.disabled = false;
+  });
+
+  function close() { modal.classList.remove("open"); }
+  document.getElementById("dutyMembersClose").addEventListener("click", close);
+  modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+})();
+</script>
 </body>
 </html>

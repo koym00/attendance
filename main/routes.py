@@ -1592,6 +1592,8 @@ def duty_toggle_member():
             )
         conn.commit()
         conn.close()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify(ok=True)
     return redirect(url_for("main.duty_page", team=team_id, year=year, month=month))
 
 
