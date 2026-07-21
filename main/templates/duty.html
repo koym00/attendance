@@ -456,6 +456,7 @@
   let _members     = [];
   let _ineligible  = new Set();
   let _initialized = false;
+  let _dirty       = false;
 
   function buildList() {
     list.innerHTML = "";
@@ -512,6 +513,7 @@
       });
       const data = await res.json();
       if (data.ok) {
+        _dirty = true;
         if (isEligible) {
           _ineligible.add(memberId);
         } else {
@@ -525,7 +527,10 @@
     btn.disabled = false;
   });
 
-  function close() { modal.classList.remove("open"); }
+  function close() {
+    modal.classList.remove("open");
+    if (_dirty) { _dirty = false; window.location.reload(); }
+  }
   document.getElementById("dutyMembersClose").addEventListener("click", close);
   modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
 })();
