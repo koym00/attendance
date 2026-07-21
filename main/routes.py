@@ -201,7 +201,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS members (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 name      TEXT NOT NULL,
-                allowance INTEGER NOT NULL DEFAULT 200
+                allowance INTEGER NOT NULL DEFAULT 200,
+                fraction  REAL NOT NULL DEFAULT 1.0
             );
             CREATE TABLE IF NOT EXISTS member_teams (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,6 +256,11 @@ def init_db():
             """
         )
         conn.commit()
+
+        mem_cols = {c["name"] for c in conn.execute("PRAGMA table_info(members)")}
+        if "fraction" not in mem_cols:
+            conn.execute("ALTER TABLE members ADD COLUMN fraction REAL NOT NULL DEFAULT 1.0")
+            conn.commit()
 
         ds_cols = {c["name"] for c in conn.execute("PRAGMA table_info(duty_schedules)")}
         if "end_date" not in ds_cols:
@@ -346,7 +352,9 @@ def vacation_days_used(conn, member_id, year, exclude_dates=None):
         f"SELECT day, status FROM attendance WHERE member_id=? AND status IN ({placeholders}) AND day LIKE ?",
         (member_id, f"{year}-%"),
     ).fetchall()
-    return sum(VAC_WEIGHT[r["status"]] for r in rows if r["day"] not in exclude_dates)
+    frow = conn.execute(_sql("SELECT fraction FROM members WHERE id=?"), (member_id,)).fetchone()
+    fraction = (frow["fraction"] if frow and frow["fraction"] is not None else 1.0)
+    return sum(VAC_WEIGHT[r["status"]] * fraction for r in rows if r["day"] not in exclude_dates)
 
 
 def birthday_block(conn, member_id, dates, new_status):
@@ -867,6 +875,7 @@ def add_member():
     allowance = request.form.get("allowance", type=int) or 200
     if request.form.get("allowance_unit") == "days":
         allowance = allowance * 8
+    fraction = max(0.0, min(1.0, (request.form.get("fraction", type=float) or 100) / 100))
     if name:
         conn = db()
         existing = conn.execute("SELECT id FROM members WHERE name=?", (name,)).fetchone()
@@ -874,7 +883,7 @@ def add_member():
             conn.close()
             flash(f"A person named '{name}' already exists.")
         else:
-            member_id = _execute_id(conn, "INSERT INTO members(name, allowance, cza) VALUES (?,?,?)", (name, allowance, cza))
+            member_id = _execute_id(conn, _sql("INSERT INTO members(name, allowance, cza, fraction) VALUES (?,?,?,?)"), (name, allowance, cza, fraction))
             today_iso = date.today().isoformat()
             conn.executemany(
                 "INSERT INTO member_teams(member_id, team_id, start_date, end_date) VALUES (?,?,?,NULL)",
@@ -893,6 +902,20 @@ def rename_member():
     if member_id and name:
         conn = db()
         conn.execute(_sql("UPDATE members SET name=? WHERE id=?"), (name, member_id))
+        conn.commit()
+        conn.close()
+    return redirect(request.referrer or url_for("main.index"))
+
+
+@bp_main.route("/member/fraction", methods=["POST"])
+@admin_required
+def update_member_fraction():
+    member_id = request.form.get("member_id", type=int)
+    fraction_pct = request.form.get("fraction", type=float)
+    if member_id and fraction_pct is not None:
+        fraction = max(0.0, min(1.0, fraction_pct / 100))
+        conn = db()
+        conn.execute(_sql("UPDATE members SET fraction=? WHERE id=?"), (fraction, member_id))
         conn.commit()
         conn.close()
     return redirect(request.referrer or url_for("main.index"))

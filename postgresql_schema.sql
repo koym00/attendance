@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.members (
     id        integer NOT NULL DEFAULT nextval('public.members_id_seq'),
     name      text COLLATE pg_catalog."default" NOT NULL,
     allowance integer NOT NULL DEFAULT 200,
+    fraction  double precision NOT NULL DEFAULT 1.0,
     cza       text COLLATE pg_catalog."default",
     CONSTRAINT "Dochazka-MEMBERS_pkey" PRIMARY KEY (id)
 ) TABLESPACE pg_default;

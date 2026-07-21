@@ -137,6 +137,14 @@
           </label>
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
+        <form method="post" action="{{ url_for('main.update_member_fraction') }}" class="effective-fields">
+          <input type="hidden" name="member_id" value="{{ m.id }}">
+          <label class="effective-field">FTE
+            <input type="number" name="fraction" min="0" max="100" step="5"
+                   value="{{ ((m.fraction or 1.0) * 100) | int }}" style="width:60px;">%
+          </label>
+          <button type="submit" class="ghost small apply-btn">Apply</button>
+        </form>
       </details>
       <form method="post" action="{{ url_for('main.member_team_remove') }}" class="inlineform"
             data-confirm="Remove {{ m.name }} from this team?">
@@ -340,6 +348,11 @@
           </span>
         </div>
         <small class="allowance-hint" id="allowanceHint">200 hours = 25 days</small>
+        <label>Employment fraction (FTE)</label>
+        <div class="allowance-row">
+          <input name="fraction" type="number" min="0" max="100" step="5" value="100" style="width:70px;">
+          <span style="font-size:12px; color:var(--sub);">%</span>
+        </div>
         {% if model.teams %}
         <label>Team</label>
         <div class="team-checks">
