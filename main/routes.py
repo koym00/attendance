@@ -1598,6 +1598,11 @@ def duty_toggle_member():
                      "ON CONFLICT(team_id, member_id) DO NOTHING"),
                 (team_id, member_id),
             )
+            conn.execute(
+                _sql("DELETE FROM duty_replacements "
+                     "WHERE team_id=? AND replacer_id=? AND date>? AND manual=0"),
+                (team_id, member_id, date.today().isoformat()),
+            )
         conn.commit()
         conn.close()
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
