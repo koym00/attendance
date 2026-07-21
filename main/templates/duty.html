@@ -443,19 +443,15 @@
 (function () {
   const TOGGLE_URL = "{{ url_for('main.duty_toggle_member') }}";
   const modal = document.getElementById("dutyMembersModal");
-  const list  = document.getElementById("dutyMembersList");
+  const list  = document.getElementById("dutyMembersModal").querySelector(".dm-list");
   let _team, _year, _month;
+  let _members    = [];
+  let _ineligible = new Set();
 
-  window.openDutyMembers = function (btn) {
-    _team  = btn.dataset.team;
-    _year  = btn.dataset.year;
-    _month = btn.dataset.month;
-    const members    = JSON.parse(btn.dataset.members);
-    const ineligible = new Set(JSON.parse(btn.dataset.ineligible));
-
+  function buildList() {
     list.innerHTML = "";
-    members.forEach(function (m) {
-      const eligible = !ineligible.has(m.id);
+    _members.forEach(function (m) {
+      const eligible = !_ineligible.has(m.id);
       const row = document.createElement("div");
       row.className = "member-elig-row";
       const nameEl = document.createElement("span");
@@ -466,20 +462,31 @@
       togBtn.className = "duty-toggle " + (eligible ? "on" : "off");
       togBtn.textContent = eligible ? "On" : "Off";
       togBtn.dataset.memberId = m.id;
-      togBtn.dataset.eligible = eligible ? "1" : "0";
       row.appendChild(nameEl);
       row.appendChild(togBtn);
       list.appendChild(row);
     });
+  }
 
+  window.openDutyMembers = function (btn) {
+    _team  = btn.dataset.team;
+    _year  = btn.dataset.year;
+    _month = btn.dataset.month;
+    _members = JSON.parse(btn.dataset.members);
+    // Read ineligible from data attribute only on first open;
+    // afterwards _ineligible is kept in sync by toggles.
+    if (!modal.classList.contains("open")) {
+      _ineligible = new Set(JSON.parse(btn.dataset.ineligible));
+    }
+    buildList();
     modal.classList.add("open");
   };
 
   list.addEventListener("click", async function (e) {
     const btn = e.target.closest(".duty-toggle");
     if (!btn) return;
-    const memberId   = btn.dataset.memberId;
-    const isEligible = btn.dataset.eligible === "1";
+    const memberId   = parseInt(btn.dataset.memberId, 10);
+    const isEligible = !_ineligible.has(memberId);
     btn.disabled = true;
 
     const fd = new FormData();
@@ -497,8 +504,12 @@
       });
       const data = await res.json();
       if (data.ok) {
-        const nowEligible = !isEligible;
-        btn.dataset.eligible = nowEligible ? "1" : "0";
+        if (isEligible) {
+          _ineligible.add(memberId);
+        } else {
+          _ineligible.delete(memberId);
+        }
+        const nowEligible = !_ineligible.has(memberId);
         btn.className = "duty-toggle " + (nowEligible ? "on" : "off");
         btn.textContent = nowEligible ? "On" : "Off";
       }
