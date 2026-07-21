@@ -491,20 +491,27 @@ def build_model(year, month, me_id):
                 if tid in current_team_members:
                     current_team_members[tid].append(m)
 
+    member_membership_dates = {}
     for mid, team_id, start, end in memberships:
         if not (end and end < today_iso):
-            if start and start >= today_iso:
-                member_pending_teams.setdefault(mid, []).append({
-                    "team_id": team_id,
-                    "team_name": team_name_by_id.get(team_id, "?"),
-                    "start_date": start,
-                })
-            if end and end >= today_iso:
-                member_pending_teams.setdefault(mid, []).append({
-                    "team_id": team_id,
-                    "team_name": team_name_by_id.get(team_id, "?"),
-                    "end_date": end,
-                })
+            existing = member_membership_dates.get(mid, {}).get(team_id)
+            if not existing or (start or "") > (existing["start_date"] or ""):
+                member_membership_dates.setdefault(mid, {})[team_id] = {
+                    "start_date": start, "end_date": end
+                }
+            if not (end and end < today_iso):
+                if start and start >= today_iso:
+                    member_pending_teams.setdefault(mid, []).append({
+                        "team_id": team_id,
+                        "team_name": team_name_by_id.get(team_id, "?"),
+                        "start_date": start,
+                    })
+                if end and end >= today_iso:
+                    member_pending_teams.setdefault(mid, []).append({
+                        "team_id": team_id,
+                        "team_name": team_name_by_id.get(team_id, "?"),
+                        "end_date": end,
+                    })
 
     conn_all = db()
     member_allowances_year = {
@@ -536,6 +543,7 @@ def build_model(year, month, me_id):
         "current_team_members": current_team_members,
         "current_unassigned_members": current_unassigned_members,
         "member_pending_teams": member_pending_teams,
+        "member_membership_dates": member_membership_dates,
         "member_allowances_year": member_allowances_year,
     }
 
