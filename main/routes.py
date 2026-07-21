@@ -762,7 +762,7 @@ def set_status():
                     wd_count = 0
                     cur = start_d
                     while cur < dt:
-                        if cur.weekday() < 5 and cur.isoformat() not in cz_holidays(cur.year):
+                        if cur.weekday() < 5:  # count all weekdays including holidays
                             wd_count += 1
                         cur += timedelta(days=1)
                     day_in_cycle = wd_count % sched["period_days"]
@@ -1114,7 +1114,7 @@ def get_monthly_duty(conn, team_id, year, month):
     _sched_wd: dict = {}
     scan_d = year_start
     while scan_d <= scan_end:
-        if scan_d.weekday() < 5 and scan_d.isoformat() not in cz_holidays(scan_d.year):
+        if scan_d.weekday() < 5:  # all weekdays, holidays just get skipped
             iso_s = scan_d.isoformat()
             s = schedule_for(iso_s)
             if s:
@@ -1125,15 +1125,16 @@ def get_monthly_duty(conn, team_id, year, month):
                     if s_start < year_start:
                         cur2 = s_start
                         while cur2 < year_start:
-                            if cur2.weekday() < 5 and cur2.isoformat() not in cz_holidays(cur2.year):
+                            if cur2.weekday() < 5:  # count all weekdays
                                 offset += 1
                             cur2 += timedelta(days=1)
                     _sched_wd[sid] = offset
                 dic = _sched_wd[sid]
-                slot_m = all_slots.get(sid, {}).get(dic % s["period_days"])
-                if slot_m:
-                    sched_duty_counts[slot_m] = sched_duty_counts.get(slot_m, 0) + 1
-                _sched_wd[sid] = dic + 1
+                if iso_s not in cz_holidays(scan_d.year):  # only count duty on non-holidays
+                    slot_m = all_slots.get(sid, {}).get(dic % s["period_days"])
+                    if slot_m:
+                        sched_duty_counts[slot_m] = sched_duty_counts.get(slot_m, 0) + 1
+                _sched_wd[sid] = dic + 1  # always advance position
         scan_d += timedelta(days=1)
 
     result = []
@@ -1156,8 +1157,7 @@ def get_monthly_duty(conn, team_id, year, month):
         wd_count = 0
         cur = start_date
         while cur < d:
-            yr = cur.year
-            if cur.weekday() < 5 and cur.isoformat() not in cz_holidays(yr):
+            if cur.weekday() < 5:  # count all weekdays including holidays
                 wd_count += 1
             cur += timedelta(days=1)
         day_in_cycle = wd_count % sched["period_days"]
