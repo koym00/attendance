@@ -1,4 +1,20 @@
 const BASE = window.APP_BASE || "";
+
+// theme switcher
+(function(){
+  const THEMES = ['light','dark','warm'];
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    document.querySelectorAll('.theme-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.t === t);
+    });
+  }
+  document.querySelectorAll('.theme-btn').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.t === (localStorage.getItem('theme')||'light'));
+    btn.addEventListener('click', function(){ applyTheme(btn.dataset.t); });
+  });
+})();
 const COV_CLASS = { off: "cov-off", ok: "cov-ok", tight: "cov-tight", low: "cov-low" };
 const pop = document.getElementById("pop");
 const toast = document.getElementById("toast");

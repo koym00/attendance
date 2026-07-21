@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Attendance · {{ model.month_name }} {{ model.year }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+  <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
   <script>window.APP_BASE = "{{ url_for('main.admin_login') }}".replace("/admin/login", "");</script>
 </head>
@@ -24,6 +25,11 @@
         <a class="navbtn wide" href="?year={{ today.y }}&month={{ today.m }}&me={{ model.me_id }}">Today</a>
         <a class="navbtn" href="?year={{ next.y }}&month={{ next.m }}&me={{ model.me_id }}">›</a>
       </div>
+    </div>
+    <div class="theme-switcher">
+      <button class="theme-btn" data-t="light" title="Light"></button>
+      <button class="theme-btn" data-t="dark" title="Dark"></button>
+      <button class="theme-btn" data-t="warm" title="Warm"></button>
     </div>
     <div class="adminzone">
       {% if is_admin %}

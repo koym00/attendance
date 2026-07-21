@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vacation Allowances · {{ year }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+  <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
   <script>window.APP_BASE = "{{ url_for('main.admin_login') }}".replace("/admin/login", "");</script>
   <style>
@@ -19,7 +20,7 @@
     .aused{font-size:12px; color:var(--sub);}
     .allow-input-wrap{display:flex; align-items:center; gap:6px;}
     .allow-input-wrap input{width:70px; font-size:13px; padding:5px 8px; border-radius:6px;
-      border:1px solid var(--line); background:#fff; text-align:right;}
+      border:1px solid var(--line); background:var(--bg); color:var(--ink); text-align:right;}
     .allow-input-wrap input:focus{outline:none; border-color:var(--ink);}
     .allow-input-wrap .unit{font-size:12px; color:var(--sub);}
     .allow-input-wrap .days-eq{font-size:11px; color:var(--sub); white-space:nowrap;}
@@ -43,6 +44,11 @@
       <a class="navbtn" href="{{ url_for('main.allowances_page', year=year+1) }}">›</a>
     </div>
     <a class="navbtn wide" href="{{ url_for('main.index') }}" style="margin-left:8px;">← Calendar</a>
+    <div class="theme-switcher" style="margin-left:8px;">
+      <button class="theme-btn" data-t="light" title="Light"></button>
+      <button class="theme-btn" data-t="dark" title="Dark"></button>
+      <button class="theme-btn" data-t="warm" title="Warm"></button>
+    </div>
   </div>
 </header>
 
@@ -104,6 +110,17 @@ function submitAllowance(input) {
     setTimeout(() => badge.classList.remove("show"), 1500);
   });
 }
+(function(){
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    localStorage.setItem('theme',t);
+    document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.toggle('active',b.dataset.t===t);});
+  }
+  document.querySelectorAll('.theme-btn').forEach(function(btn){
+    btn.classList.toggle('active',btn.dataset.t===(localStorage.getItem('theme')||'light'));
+    btn.addEventListener('click',function(){applyTheme(btn.dataset.t);});
+  });
+})();
 </script>
 </body>
 </html>

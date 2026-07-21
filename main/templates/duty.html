@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Duty · {{ team.name if team else '' }} · {{ month_name }} {{ year }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+  <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="stylesheet" href="{{ url_for('main.serve_css') }}">
   <style>
     .duty-layout{display:grid; grid-template-columns:1fr 340px; gap:24px; padding:20px 22px 60px; align-items:start;}
@@ -126,6 +127,11 @@
       </div>
     </div>
     <a class="navbtn wide" href="{{ url_for('main.index') }}" style="margin-left:8px;">← Calendar</a>
+    <div class="theme-switcher" style="margin-left:8px;">
+      <button class="theme-btn" data-t="light" title="Light"></button>
+      <button class="theme-btn" data-t="dark" title="Dark"></button>
+      <button class="theme-btn" data-t="warm" title="Warm"></button>
+    </div>
   </div>
 </header>
 
@@ -538,6 +544,19 @@
   }
   document.getElementById("dutyMembersClose").addEventListener("click", close);
   modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+})();
+
+// theme switcher
+(function(){
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    localStorage.setItem('theme',t);
+    document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.toggle('active',b.dataset.t===t);});
+  }
+  document.querySelectorAll('.theme-btn').forEach(function(btn){
+    btn.classList.toggle('active',btn.dataset.t===(localStorage.getItem('theme')||'light'));
+    btn.addEventListener('click',function(){applyTheme(btn.dataset.t);});
+  });
 })();
 </script>
 </body>
