@@ -336,12 +336,18 @@ def effective_status(stored, weekend, holiday):
 
 def get_allowance(conn, member_id, year) -> int:
     row = conn.execute(
-        "SELECT allowance FROM member_allowances WHERE member_id=? AND year=?",
+        _sql("SELECT allowance FROM member_allowances WHERE member_id=? AND year=?"),
         (member_id, year),
     ).fetchone()
     if row:
         return row["allowance"]
-    row = conn.execute("SELECT allowance FROM members WHERE id=?", (member_id,)).fetchone()
+    prev = conn.execute(
+        _sql("SELECT allowance FROM member_allowances WHERE member_id=? AND year<? ORDER BY year DESC LIMIT 1"),
+        (member_id, year),
+    ).fetchone()
+    if prev:
+        return prev["allowance"]
+    row = conn.execute(_sql("SELECT allowance FROM members WHERE id=?"), (member_id,)).fetchone()
     return row["allowance"] if row else 200
 
 
