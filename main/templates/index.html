@@ -115,6 +115,13 @@
             {% endif %}
           {% endfor %}
         </summary>
+        <form method="post" action="{{ url_for('main.rename_member') }}" class="effective-fields">
+          <input type="hidden" name="member_id" value="{{ m.id }}">
+          <label class="effective-field">Name
+            <input type="text" name="name" value="{{ m.name }}" style="width:150px;" required>
+          </label>
+          <button type="submit" class="ghost small apply-btn">Apply</button>
+        </form>
         <form method="post" action="{{ url_for('main.member_team_dates') }}" class="effective-fields">
           <input type="hidden" name="member_id" value="{{ m.id }}">
           <input type="hidden" name="team_id" value="{{ team_id }}">

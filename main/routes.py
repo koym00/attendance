@@ -871,6 +871,19 @@ def add_member():
     return redirect(request.referrer or url_for("main.index"))
 
 
+@bp_main.route("/member/rename", methods=["POST"])
+@admin_required
+def rename_member():
+    member_id = request.form.get("member_id", type=int)
+    name = (request.form.get("name") or "").strip()
+    if member_id and name:
+        conn = db()
+        conn.execute(_sql("UPDATE members SET name=? WHERE id=?"), (name, member_id))
+        conn.commit()
+        conn.close()
+    return redirect(request.referrer or url_for("main.index"))
+
+
 @bp_main.route("/member/cza", methods=["POST"])
 @admin_required
 def update_member_cza():
