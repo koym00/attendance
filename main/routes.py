@@ -1249,6 +1249,13 @@ def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
             continue
 
         if eff in WORKING:
+            if iso in existing_rep and not existing_rep[iso][2]:
+                conn.execute(
+                    _sql("DELETE FROM duty_replacements WHERE team_id=? AND date=? AND manual=0"),
+                    (team_id, iso),
+                )
+                conn.commit()
+                rep_counts[existing_rep[iso][0]] = max(0, rep_counts.get(existing_rep[iso][0], 1) - 1)
             result.append({"date": iso, "wd": wd, "scheduled_id": scheduled_id, "effective_id": scheduled_id,
                            "is_replacement": False, "is_manual": False, "no_coverage": False})
             continue
