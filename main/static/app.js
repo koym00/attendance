@@ -47,8 +47,9 @@ function openPicker(anchorCell, member, dates) {
   let html = `<div class="head">${head}</div>`;
   window.ORDER.forEach((k) => {
     const s = window.STATUS[k];
+    const badge = s.no_allowance ? '<span class="no-allow-badge">N</span>' : '';
     html += `<div class="opt" data-set="${k}">
-        <span class="code" style="color:${s.color}">${k.toUpperCase()}</span>${s.label}</div>`;
+        <span class="code" style="color:${s.color}">${k.toUpperCase()}</span>${s.label}${badge}</div>`;
   });
   html += `<div class="opt clear" data-set=""><span class="code" style="text-align:center">×</span>Clear / default</div>`;
   pop.innerHTML = html;

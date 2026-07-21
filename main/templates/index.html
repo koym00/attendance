@@ -208,7 +208,7 @@
         <b style="color:{{ STATUS[k].color }}">HVA</b>{{ STATUS[k].label }}</span>
     {% else %}
       <span class="lg-item"><span class="dot" style="background:{{ STATUS[k].color }}"></span>
-        <b style="color:{{ STATUS[k].color }}">{{ k|upper }}</b>{{ STATUS[k].label }}</span>
+        <b style="color:{{ STATUS[k].color }}">{{ k|upper }}</b>{{ STATUS[k].label }}{% if STATUS[k].no_allowance is defined %}<span class="no-allow-badge">N</span>{% endif %}</span>
     {% endif %}
   {% endfor %}
   <span class="lg-item"><span class="dot" style="background:#FFD500"></span>★ CZ public holiday</span>
