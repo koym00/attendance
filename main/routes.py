@@ -1282,8 +1282,15 @@ def duty_page():
             "ORDER BY start_date DESC LIMIT 1",
             (team_id, today_iso, today_iso),
         ).fetchone()
+        def _slot_start_wd(start_date_str):
+            d = date.fromisoformat(start_date_str)
+            while d.weekday() >= 5:
+                d += timedelta(days=1)
+            return d.weekday()
+
         if s:
             schedule = dict(s)
+            schedule["start_wd"] = _slot_start_wd(schedule["start_date"])
             for sl in conn.execute("SELECT * FROM duty_slots WHERE schedule_id=? ORDER BY day_offset", (s["id"],)):
                 slots[sl["day_offset"]] = dict(sl)
         for us in conn.execute(
@@ -1291,6 +1298,7 @@ def duty_page():
             (team_id, today_iso),
         ).fetchall():
             us_dict = dict(us)
+            us_dict["start_wd"] = _slot_start_wd(us_dict["start_date"])
             us_dict["slots"] = {
                 sl["day_offset"]: dict(sl)
                 for sl in conn.execute("SELECT * FROM duty_slots WHERE schedule_id=? ORDER BY day_offset", (us_dict["id"],))

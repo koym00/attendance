@@ -244,7 +244,7 @@
         {% for offset in range(schedule.period_days) %}
           {% set slot = slots.get(offset) %}
           <div class="slot-row">
-            <span class="slot-label">{{ wd_names[offset % 5] }}{% if schedule.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
+            <span class="slot-label">{{ wd_names[(schedule.start_wd + offset) % 5] }}{% if schedule.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
             <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
               <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
               <input type="hidden" name="day_offset" value="{{ offset }}">
@@ -320,7 +320,7 @@
         {% for offset in range(us.period_days) %}
           {% set slot = us.slots.get(offset) %}
           <div class="slot-row">
-            <span class="slot-label">{{ wd_names[offset % 5] }}{% if us.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
+            <span class="slot-label">{{ wd_names[(us.start_wd + offset) % 5] }}{% if us.period_days > 5 %} {{ offset // 5 + 1 }}{% endif %}</span>
             <form method="post" action="{{ url_for('main.duty_set_slot') }}" class="inlineform" style="display:contents;">
               <input type="hidden" name="schedule_id" value="{{ us.id }}">
               <input type="hidden" name="day_offset" value="{{ offset }}">
