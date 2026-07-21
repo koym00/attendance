@@ -9,6 +9,19 @@
     .duty-layout{display:grid; grid-template-columns:1fr 340px; gap:24px; padding:20px 22px 60px; align-items:start;}
     @media (max-width:900px){.duty-layout{grid-template-columns:1fr;}}
 
+    /* member eligibility toggles */
+    .members-section{margin-top:14px; border-top:1px solid var(--line); padding-top:12px;}
+    .members-summary{font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase;
+      letter-spacing:.4px; cursor:pointer; user-select:none; list-style:none;}
+    .members-summary::-webkit-details-marker{display:none;}
+    .members-list{margin-top:10px; display:flex; flex-direction:column; gap:5px;}
+    .member-elig-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+    .member-elig-name{font-size:12.5px; flex:1;}
+    .duty-toggle{font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;
+      border:none; cursor:pointer; line-height:1.4;}
+    .duty-toggle.on{background:rgba(22,163,74,.15); color:#15803D;}
+    .duty-toggle.off{background:var(--line); color:var(--sub);}
+
     /* duty calendar */
     .duty-cal{display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
       background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
@@ -222,7 +235,9 @@
                 <select name="member_id" onchange="this.form.submit()">
                   <option value="">— Unassigned —</option>
                   {% for m in team_members %}
-                    <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                    {% if m.id not in duty_ineligible_ids %}
+                      <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                    {% endif %}
                   {% endfor %}
                 </select>
               {% else %}
@@ -234,6 +249,27 @@
           </div>
         {% endfor %}
       </div>
+      {% if is_admin and current_duty_members %}
+      <details class="members-section">
+        <summary class="members-summary">Members</summary>
+        <div class="members-list">
+          {% for m in current_duty_members %}
+            {% set is_eligible = m.id not in duty_ineligible_ids %}
+            <form method="post" action="{{ url_for('main.duty_toggle_member') }}" class="member-elig-row">
+              <input type="hidden" name="team_id" value="{{ team_id }}">
+              <input type="hidden" name="member_id" value="{{ m.id }}">
+              <input type="hidden" name="eligible" value="{{ 0 if is_eligible else 1 }}">
+              <input type="hidden" name="year" value="{{ year }}">
+              <input type="hidden" name="month" value="{{ month }}">
+              <span class="member-elig-name">{{ m.name }}</span>
+              <button type="submit" class="duty-toggle {{ 'on' if is_eligible else 'off' }}">
+                {{ 'On' if is_eligible else 'Off' }}
+              </button>
+            </form>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
       {% if is_admin %}
       <form method="post" action="{{ url_for('main.duty_delete_schedule') }}"
             style="margin-top:14px;">
@@ -284,13 +320,36 @@
               <select name="member_id" onchange="this.form.submit()">
                 <option value="">— Unassigned —</option>
                 {% for m in team_members %}
-                  <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                  {% if m.id not in duty_ineligible_ids %}
+                    <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                  {% endif %}
                 {% endfor %}
               </select>
             </form>
           </div>
         {% endfor %}
       </div>
+      {% if current_duty_members %}
+      <details class="members-section">
+        <summary class="members-summary">Members</summary>
+        <div class="members-list">
+          {% for m in current_duty_members %}
+            {% set is_eligible = m.id not in duty_ineligible_ids %}
+            <form method="post" action="{{ url_for('main.duty_toggle_member') }}" class="member-elig-row">
+              <input type="hidden" name="team_id" value="{{ team_id }}">
+              <input type="hidden" name="member_id" value="{{ m.id }}">
+              <input type="hidden" name="eligible" value="{{ 0 if is_eligible else 1 }}">
+              <input type="hidden" name="year" value="{{ year }}">
+              <input type="hidden" name="month" value="{{ month }}">
+              <span class="member-elig-name">{{ m.name }}</span>
+              <button type="submit" class="duty-toggle {{ 'on' if is_eligible else 'off' }}">
+                {{ 'On' if is_eligible else 'Off' }}
+              </button>
+            </form>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
       {% endif %}
     </div>
     {% endfor %}

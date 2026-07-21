@@ -247,6 +247,11 @@ def init_db():
                 allowance   INTEGER NOT NULL,
                 UNIQUE(member_id, year)
             );
+            CREATE TABLE IF NOT EXISTS duty_members (
+                team_id   INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                PRIMARY KEY (team_id, member_id)
+            );
             """
         )
         conn.commit()
@@ -1040,7 +1045,7 @@ def member_team_dates():
     return redirect(request.referrer or url_for("main.index"))
 
 
-def get_monthly_duty(conn, team_id, year, month):
+def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
     all_schedules = [dict(r) for r in conn.execute(
         "SELECT * FROM duty_schedules WHERE team_id=? ORDER BY start_date",
         (team_id,),
@@ -1193,6 +1198,8 @@ def get_monthly_duty(conn, team_id, year, month):
         for mid in members_active_on(iso):
             if mid == scheduled_id:
                 continue
+            if duty_ineligible_ids and mid in duty_ineligible_ids:
+                continue
             eff_m = effective_status(att_map.get((mid, iso)), False, iso in holidays)
             if eff_m in WORKING:
                 candidates.append((rep_counts.get(mid, 0), mid))
@@ -1295,7 +1302,24 @@ def duty_page():
             (team_id, today_iso),
         ).fetchall()]
 
-    monthly_duty = get_monthly_duty(conn, team_id, year, month) if team_id else []
+    duty_ineligible_ids: set = set()
+    current_duty_members: list = []
+    if team_id:
+        inelig_rows = conn.execute(
+            _sql("SELECT member_id FROM duty_members WHERE team_id=?"), (team_id,)
+        ).fetchall()
+        duty_ineligible_ids = {r["member_id"] for r in inelig_rows}
+        today_iso2 = today.isoformat()
+        current_duty_members = [dict(r) for r in conn.execute(
+            _sql("SELECT DISTINCT m.id, m.name FROM members m "
+                 "JOIN member_teams mt ON mt.member_id=m.id "
+                 "WHERE mt.team_id=? "
+                 "AND (mt.end_date IS NULL OR mt.end_date>=?) "
+                 "AND (mt.start_date IS NULL OR mt.start_date<=?) ORDER BY m.name"),
+            (team_id, today_iso2, today_iso2),
+        ).fetchall()]
+
+    monthly_duty = get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids) if team_id else []
 
     if schedule and team_id:
         sched_start = date.fromisoformat(schedule["start_date"])
@@ -1303,7 +1327,7 @@ def duty_page():
         this_month_start = date(today.year, today.month, 1)
         while m_iter < this_month_start:
             if not (m_iter.year == year and m_iter.month == month):
-                get_monthly_duty(conn, team_id, m_iter.year, m_iter.month)
+                get_monthly_duty(conn, team_id, m_iter.year, m_iter.month, duty_ineligible_ids)
             m_iter = date(m_iter.year + (m_iter.month // 12),
                           (m_iter.month % 12) + 1, 1)
 
@@ -1371,6 +1395,8 @@ def duty_page():
         all_days=_all_days,
         month_start_wd=_month_start_wd,
         duty_by_date=_duty_by_date,
+        duty_ineligible_ids=duty_ineligible_ids,
+        current_duty_members=current_duty_members,
     )
 
 
@@ -1539,6 +1565,32 @@ def duty_set_replacement():
             )
         conn.commit()
     finally:
+        conn.close()
+    return redirect(url_for("main.duty_page", team=team_id, year=year, month=month))
+
+
+@bp_main.route("/duty/member", methods=["POST"])
+@admin_required
+def duty_toggle_member():
+    team_id = request.form.get("team_id", type=int)
+    member_id = request.form.get("member_id", type=int)
+    eligible = request.form.get("eligible", type=int, default=1)
+    year = request.form.get("year", type=int)
+    month = request.form.get("month", type=int)
+    if team_id and member_id is not None:
+        conn = db()
+        if eligible:
+            conn.execute(
+                _sql("DELETE FROM duty_members WHERE team_id=? AND member_id=?"),
+                (team_id, member_id),
+            )
+        else:
+            conn.execute(
+                _sql("INSERT INTO duty_members(team_id, member_id) VALUES (?,?) "
+                     "ON CONFLICT(team_id, member_id) DO NOTHING"),
+                (team_id, member_id),
+            )
+        conn.commit()
         conn.close()
     return redirect(url_for("main.duty_page", team=team_id, year=year, month=month))
 

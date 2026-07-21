@@ -109,3 +109,12 @@ CREATE TABLE IF NOT EXISTS public.member_allowances (
 ) TABLESPACE pg_default;
 ALTER SEQUENCE public.member_allowances_id_seq OWNED BY public.member_allowances.id;
 ALTER TABLE IF EXISTS public.member_allowances OWNER TO "dochazka-collmng-db-test-owner";
+
+CREATE TABLE IF NOT EXISTS public.duty_members (
+    team_id   integer NOT NULL,
+    member_id integer NOT NULL,
+    CONSTRAINT duty_members_pkey PRIMARY KEY (team_id, member_id),
+    CONSTRAINT duty_members_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE CASCADE,
+    CONSTRAINT duty_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+ALTER TABLE IF EXISTS public.duty_members OWNER TO "dochazka-collmng-db-test-owner";
