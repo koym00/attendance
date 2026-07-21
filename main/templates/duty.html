@@ -272,8 +272,8 @@
         data-team="{{ team_id }}"
         data-year="{{ year }}"
         data-month="{{ month }}"
-        data-members="{{ current_duty_members | tojson | e }}"
-        data-ineligible="{{ duty_ineligible_ids | list | tojson | e }}"
+        data-members="{{ current_duty_members | tojson | forceescape }}"
+        data-ineligible="{{ duty_ineligible_ids | list | tojson | forceescape }}"
         onclick="openDutyMembers(this)">
         Members <span style="font-size:11px; color:var(--sub);">›</span>
       </button>
@@ -342,8 +342,8 @@
         data-team="{{ team_id }}"
         data-year="{{ year }}"
         data-month="{{ month }}"
-        data-members="{{ current_duty_members | tojson | e }}"
-        data-ineligible="{{ duty_ineligible_ids | list | tojson | e }}"
+        data-members="{{ current_duty_members | tojson | forceescape }}"
+        data-ineligible="{{ duty_ineligible_ids | list | tojson | forceescape }}"
         onclick="openDutyMembers(this)">
         Members <span style="font-size:11px; color:var(--sub);">›</span>
       </button>
