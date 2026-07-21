@@ -675,7 +675,9 @@ def vacation_allowance_block(conn, member_id, dates, new_status):
     for year, year_dates in by_year.items():
         allowed_days = get_allowance(conn, member_id, int(year)) / 8
         existing_used = vacation_days_used(conn, member_id, year, exclude_dates=set(year_dates))
-        used_after = round(existing_used + VAC_WEIGHT[new_status] * len(year_dates), 1)
+        frow = conn.execute(_sql("SELECT fraction FROM members WHERE id=?"), (member_id,)).fetchone()
+        fraction = frow["fraction"] if frow and frow["fraction"] is not None else 1.0
+        used_after = round(existing_used + VAC_WEIGHT[new_status] * len(year_dates) * fraction, 1)
         if used_after > allowed_days:
             return {
                 "year": year,
@@ -881,7 +883,8 @@ def add_member():
     allowance = request.form.get("allowance", type=int) or 200
     if request.form.get("allowance_unit") == "days":
         allowance = allowance * 8
-    fraction = max(0.0, min(1.0, (request.form.get("fraction", type=float) or 100) / 100))
+    frac_input = request.form.get("fraction", type=float)
+    fraction = max(0.0, min(1.0, (frac_input if frac_input is not None else 100) / 100))
     if name:
         conn = db()
         existing = conn.execute("SELECT id FROM members WHERE name=?", (name,)).fetchone()
@@ -1148,8 +1151,9 @@ def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
     for mid, s, e in _memberships:
         eff_start = max(date.fromisoformat(s) if s else year_start, year_start)
         eff_end   = min(date.fromisoformat(e) if e else today, today)
-        days = max(1, (eff_end - eff_start).days + 1)
-        days_in_team[mid] = days_in_team.get(mid, 0) + days
+        days = max(0, (eff_end - eff_start).days + 1)
+        if days > 0:
+            days_in_team[mid] = days_in_team.get(mid, 0) + days
 
     year_start = date(year, 1, 1)
     scan_end = min(today, date(year, 12, 31))
@@ -1629,24 +1633,26 @@ def duty_toggle_member():
     month = request.form.get("month", type=int)
     if team_id and member_id is not None:
         conn = db()
-        if eligible:
-            conn.execute(
-                _sql("DELETE FROM duty_members WHERE team_id=? AND member_id=?"),
-                (team_id, member_id),
-            )
-        else:
-            conn.execute(
-                _sql("INSERT INTO duty_members(team_id, member_id) VALUES (?,?) "
-                     "ON CONFLICT(team_id, member_id) DO NOTHING"),
-                (team_id, member_id),
-            )
-            conn.execute(
-                _sql("DELETE FROM duty_replacements "
-                     "WHERE team_id=? AND replacer_id=? AND date>? AND manual=0"),
-                (team_id, member_id, date.today().isoformat()),
-            )
-        conn.commit()
-        conn.close()
+        try:
+            if eligible:
+                conn.execute(
+                    _sql("DELETE FROM duty_members WHERE team_id=? AND member_id=?"),
+                    (team_id, member_id),
+                )
+            else:
+                conn.execute(
+                    _sql("INSERT INTO duty_members(team_id, member_id) VALUES (?,?) "
+                         "ON CONFLICT(team_id, member_id) DO NOTHING"),
+                    (team_id, member_id),
+                )
+                conn.execute(
+                    _sql("DELETE FROM duty_replacements "
+                         "WHERE team_id=? AND replacer_id=? AND date>? AND manual=0"),
+                    (team_id, member_id, date.today().isoformat()),
+                )
+            conn.commit()
+        finally:
+            conn.close()
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify(ok=True)
     return redirect(url_for("main.duty_page", team=team_id, year=year, month=month))

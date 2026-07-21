@@ -98,17 +98,21 @@
   </div>
 {% endmacro %}
 
-{% macro person_admin_row(m, team_id) %}
-  {% set membership = model.member_membership_dates.get(m.id, {}).get(team_id, {}) %}
+{% macro person_admin_row(m, team_id=none) %}
+  {% if team_id is not none %}
+    {% set membership = model.member_membership_dates.get(m.id, {}).get(team_id, {}) %}
+  {% else %}
+    {% set membership = {} %}
+  {% endif %}
   <div class="mrow">
     <div class="mrow-top">
       <details class="person-details" data-member="{{ m.id }}">
         <summary>
           <span class="pname">{{ m.name }}</span>
-          {% if membership.start_date and membership.start_date > model.today_iso %}
+          {% if team_id is not none and membership.start_date and membership.start_date > model.today_iso %}
             <span class="team-pending">from {{ membership.start_date }}</span>
           {% endif %}
-          {% if membership.end_date %}
+          {% if team_id is not none and membership.end_date %}
             <span class="team-pending team-ending">until {{ membership.end_date }}</span>
           {% endif %}
         </summary>
@@ -119,6 +123,7 @@
           </label>
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
+        {% if team_id is not none %}
         <form method="post" action="{{ url_for('main.member_team_dates') }}" class="effective-fields">
           <input type="hidden" name="member_id" value="{{ m.id }}">
           <input type="hidden" name="team_id" value="{{ team_id }}">
@@ -130,6 +135,7 @@
           </label>
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
+        {% endif %}
         <form method="post" action="{{ url_for('main.update_member_cza') }}" class="effective-fields">
           <input type="hidden" name="member_id" value="{{ m.id }}">
           <label class="effective-field">cza
@@ -146,12 +152,20 @@
           <button type="submit" class="ghost small apply-btn">Apply</button>
         </form>
       </details>
+      {% if team_id is not none %}
       <form method="post" action="{{ url_for('main.member_team_remove') }}" class="inlineform"
             data-confirm="Remove {{ m.name }} from this team?">
         <input type="hidden" name="member_id" value="{{ m.id }}">
         <input type="hidden" name="team_id" value="{{ team_id }}">
         <button type="submit" class="danger small" title="Remove from team">✕</button>
       </form>
+      {% else %}
+      <form method="post" action="{{ url_for('main.delete_member') }}" class="inlineform"
+            data-confirm="Remove {{ m.name }}?">
+        <input type="hidden" name="member_id" value="{{ m.id }}">
+        <button type="submit" class="danger small" title="Remove person">✕</button>
+      </form>
+      {% endif %}
     </div>
   </div>
 {% endmacro %}
@@ -300,18 +314,7 @@
         <div class="people-group">
           <div class="people-group-head">Unassigned</div>
           <div class="mlist">
-            {% for m in model.current_unassigned_members %}
-              <div class="mrow">
-                <div class="mrow-top">
-                  <span class="pname">{{ m.name }}</span>
-                  <form method="post" action="{{ url_for('main.delete_member') }}" class="inlineform"
-                        data-confirm="Remove {{ m.name }}?">
-                    <input type="hidden" name="member_id" value="{{ m.id }}">
-                    <button type="submit" class="danger small" title="Remove person">✕</button>
-                  </form>
-                </div>
-              </div>
-            {% endfor %}
+            {% for m in model.current_unassigned_members %}{{ person_admin_row(m) }}{% endfor %}
           </div>
         </div>
       {% endif %}

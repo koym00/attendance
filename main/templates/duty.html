@@ -258,6 +258,8 @@
                     {% for m in team_members %}
                       {% if m.id not in duty_ineligible_ids %}
                         <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                      {% elif slot and slot.member_id == m.id %}
+                        <option value="{{ m.id }}" selected disabled>{{ m.name }} (ineligible)</option>
                       {% endif %}
                     {% endfor %}
                   </select>
@@ -337,6 +339,8 @@
                   {% for m in team_members %}
                     {% if m.id not in duty_ineligible_ids %}
                       <option value="{{ m.id }}" {{ 'selected' if slot and slot.member_id == m.id }}>{{ m.name }}</option>
+                    {% elif slot and slot.member_id == m.id %}
+                      <option value="{{ m.id }}" selected disabled>{{ m.name }} (ineligible)</option>
                     {% endif %}
                   {% endfor %}
                 </select>
