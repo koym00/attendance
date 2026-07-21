@@ -445,8 +445,9 @@
   const modal = document.getElementById("dutyMembersModal");
   const list  = document.getElementById("dutyMembersModal").querySelector(".dm-list");
   let _team, _year, _month;
-  let _members    = [];
-  let _ineligible = new Set();
+  let _members     = [];
+  let _ineligible  = new Set();
+  let _initialized = false;
 
   function buildList() {
     list.innerHTML = "";
@@ -473,10 +474,9 @@
     _year  = btn.dataset.year;
     _month = btn.dataset.month;
     _members = JSON.parse(btn.dataset.members);
-    // Read ineligible from data attribute only on first open;
-    // afterwards _ineligible is kept in sync by toggles.
-    if (!modal.classList.contains("open")) {
-      _ineligible = new Set(JSON.parse(btn.dataset.ineligible));
+    if (!_initialized) {
+      _ineligible  = new Set(JSON.parse(btn.dataset.ineligible));
+      _initialized = true;
     }
     buildList();
     modal.classList.add("open");
