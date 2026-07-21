@@ -201,7 +201,6 @@ def init_db():
             CREATE TABLE IF NOT EXISTS members (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 name      TEXT NOT NULL,
-                allowance INTEGER NOT NULL DEFAULT 200,
                 fraction  REAL NOT NULL DEFAULT 1.0
             );
             CREATE TABLE IF NOT EXISTS member_teams (
@@ -316,6 +315,26 @@ def init_db():
             conn.execute("ALTER TABLE members ADD COLUMN cza TEXT")
             conn.commit()
 
+        m_cols = {c["name"] for c in conn.execute("PRAGMA table_info(members)")}
+        if "allowance" in m_cols:
+            try:
+                conn.execute("ALTER TABLE members DROP COLUMN allowance")
+            except Exception:
+                conn.executescript(
+                    """
+                    CREATE TABLE members_new (
+                        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name     TEXT NOT NULL,
+                        fraction REAL NOT NULL DEFAULT 1.0,
+                        cza      TEXT
+                    );
+                    INSERT INTO members_new(id, name, fraction, cza) SELECT id, name, fraction, cza FROM members;
+                    DROP TABLE members;
+                    ALTER TABLE members_new RENAME TO members;
+                    """
+                )
+            conn.commit()
+
         conn.execute("PRAGMA foreign_keys = ON")
 
     old_to_new = {"ofc": "wrk", "wfh": "wrk", "trp": "wrk", "sck": "upl", "fre": "upl"}
@@ -347,8 +366,7 @@ def get_allowance(conn, member_id, year) -> int:
     ).fetchone()
     if prev:
         return prev["allowance"]
-    row = conn.execute(_sql("SELECT allowance FROM members WHERE id=?"), (member_id,)).fetchone()
-    return row["allowance"] if row else 200
+    return 200
 
 
 def vacation_days_used(conn, member_id, year, exclude_dates=None):
@@ -892,7 +910,7 @@ def add_member():
             conn.close()
             flash(f"A person named '{name}' already exists.")
         else:
-            member_id = _execute_id(conn, _sql("INSERT INTO members(name, allowance, cza, fraction) VALUES (?,?,?,?)"), (name, allowance, cza, fraction))
+            member_id = _execute_id(conn, _sql("INSERT INTO members(name, cza, fraction) VALUES (?,?,?)"), (name, cza, fraction))
             today_iso = date.today().isoformat()
             current_year = date.today().year
             conn.execute(
