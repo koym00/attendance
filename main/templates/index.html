@@ -105,7 +105,7 @@
       <details class="person-details" data-member="{{ m.id }}">
         <summary>
           <span class="pname">{{ m.name }}</span>
-          {% if membership.start_date %}
+          {% if membership.start_date and membership.start_date > model.today_iso %}
             <span class="team-pending">from {{ membership.start_date }}</span>
           {% endif %}
           {% if membership.end_date %}
