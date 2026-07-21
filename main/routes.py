@@ -1142,9 +1142,9 @@ def get_monthly_duty(conn, team_id, year, month, duty_ineligible_ids=None):
     existing_rep = {r["date"]: (r["replacer_id"], r["replaced_id"], bool(r["manual"])) for r in rep_rows}
 
     cnt_rows = conn.execute(
-        "SELECT replacer_id, COUNT(*) AS cnt FROM duty_replacements "
-        "WHERE team_id=? AND year=? GROUP BY replacer_id",
-        (team_id, year),
+        _sql("SELECT replacer_id, COUNT(*) AS cnt FROM duty_replacements "
+        "WHERE team_id=? AND date >= '2026-07-22' GROUP BY replacer_id"),
+        (team_id,),
     ).fetchall()
     rep_counts = {r["replacer_id"]: r["cnt"] for r in cnt_rows}
 
@@ -1431,9 +1431,9 @@ def duty_page():
     stats = []
     if team_id:
         cnt_map = {r["replacer_id"]: r["cnt"] for r in conn.execute(
-            "SELECT replacer_id, COUNT(*) AS cnt FROM duty_replacements "
-            "WHERE team_id=? AND year=? GROUP BY replacer_id",
-            (team_id, year),
+            _sql("SELECT replacer_id, COUNT(*) AS cnt FROM duty_replacements "
+            "WHERE team_id=? AND date >= '2026-07-22' GROUP BY replacer_id"),
+            (team_id,),
         ).fetchall()}
         for m in [dict(r) for r in conn.execute(
             "SELECT DISTINCT m.id, m.name FROM members m "
